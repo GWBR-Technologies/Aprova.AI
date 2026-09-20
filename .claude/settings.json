@@ -1,5 +1,55 @@
 {
-  "enabledPlugins": {
-    "expo@claude-plugins-official": true
+  "env": {
+    "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH": "1",
+    "CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS": "2"
+  },
+  "permissions": {
+    "defaultMode": "default",
+    "disableAutoMode": "disable",
+    "disableBypassPermissionsMode": "disable",
+    "blockReadsOutsideWorkingDirectories": true,
+    "allow": [
+      "Bash(npm run lint)"
+    ],
+    "ask": [
+        "Bash(npm install *)",
+        "Bash(npm uninstall *)",
+        "Bash(npm update *)",
+        "Bash(git commit *)",
+        "Bash(git push *)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./.npmrc)",
+      "Edit(./.env)",
+      "Edit(./.env.*)",
+      "Edit(./.npmrc)",
+      "Write(./.env)",
+      "Write(./.env.*)",
+      "Write(./.npmrc)",
+      "Bash(printenv)",
+      "Bash(env)",
+      "Bash(git reset --hard *)",
+      "Bash(git clean *)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(rm -rf *)",
+      "Bash(rm -fr *)",
+      "Bash(npm publish *)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}/.claude/hooks/validate-base.sh\""
+          }
+        ]
+      }
+    ]
   }
 }
