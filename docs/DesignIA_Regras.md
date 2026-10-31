@@ -136,9 +136,11 @@ O indicador principal não é o uso de IA, mas a quantidade e a qualidade das de
 
 ---
 
-## Como usar Gluestack UI neste projeto
+## Gluestack UI como referência (não adotado)
 
-O documento de implementação complementar é o [DESIGN.md](LLMs/DESIGN.md). Ele é a fonte de verdade para identidade, tokens, acessibilidade e comportamento do produto; Gluestack deve acelerar a construção, não substituir essas decisões.
+> Estado atual: o Gluestack UI **não está instalado** no Aprova.AI, que usa React Native com `StyleSheet`. Esta seção é uma referência condicional, válida somente se a adoção for aprovada.
+
+O documento de implementação complementar é o [DESIGN.md](DESIGN.md). Ele é a fonte de verdade para identidade, tokens, acessibilidade e comportamento do produto; Gluestack deve acelerar a construção, não substituir essas decisões.
 
 ### O que está disponível
 
@@ -169,9 +171,9 @@ O Gluestack UI Pro acrescenta uma biblioteca de mais de 50 telas React Native/Ex
 
 ### Limites de plataforma e integração
 
-Este repositório usa Next.js e Tailwind CSS. As telas Pro são distribuídas para React Native/Expo, com NativeWind e Expo Router; portanto, não devem ser importadas diretamente neste código web. Elas são referência de composição ou base para uma futura versão Expo. A própria documentação v5 identifica componentes específicos de Expo, como `BottomSheet`, e aponta o suporte completo a Next.js como pendente de suporte web do NativeWind v5. Verifique a compatibilidade de cada primitiva e faça um teste de teclado, foco e responsividade antes de adotá-la. [Componentes e plataformas](https://gluestack.io/ui/docs/components/all-components) · [Roadmap](https://gluestack.io/ui/docs/guides/more/roadmap)
+Este repositório é um aplicativo Expo (React Native), sem Next.js, Tailwind CSS nem NativeWind instalados. Adotar Gluestack UI exige aprovação explícita, porque adiciona dependências e um segundo sistema de estilo. As telas Pro são distribuídas para React Native/Expo, com NativeWind e Expo Router, e servem como referência de composição. A documentação v5 identifica componentes específicos de Expo, como `BottomSheet`, e aponta o suporte completo a Next.js como pendente de suporte web do NativeWind v5. Verifique a compatibilidade de cada primitiva e faça um teste de teclado, foco e responsividade antes de adotá-la. [Componentes e plataformas](https://gluestack.io/ui/docs/components/all-components) · [Roadmap](https://gluestack.io/ui/docs/guides/more/roadmap)
 
-Para o projeto atual, a integração deve ocorrer por adaptadores locais em `components/ui/`: `Button`, `Input` e `Badge` existentes já expressam parte do contrato visual. Ao incorporar uma primitiva gratuita, copie sua implementação e aplique os tokens de `app/globals.css`; não deixe páginas diferentes criar seus próprios hexadecimais, raios, fontes ou alturas.
+Se a adoção for aprovada, a integração deve ocorrer por adaptadores locais em `src/components/`, copiando apenas a primitiva necessária e aplicando os tokens de `src/constants/theme.ts`; não deixe telas diferentes criarem seus próprios hexadecimais, raios, fontes ou alturas.
 
 ### Barreiras contra aparência genérica
 
