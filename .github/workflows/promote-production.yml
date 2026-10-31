@@ -1,0 +1,104 @@
+name: promote-production
+
+# Move a etiqueta "production" para a imagem de um commit. A VM consulta o registro a cada 2 minutos
+# (infra/scripts/deploy.sh) e atualiza sozinha; este fluxo nunca se conecta a ela.
+# O ambiente "production" precisa ter revisores obrigatórios nas configurações do repositório (D4).
+# Rollback: rodar este fluxo com o SHA anterior, que o relatório de cada deploy registra.
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: SHA completo (40 caracteres) do commit cuja imagem vira production
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promote-production
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/gwbr-technologies/aprovaai-backend
+
+jobs:
+  promote:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      packages: write
+      checks: read
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SHA: ${{ inputs.sha }}
+      REPO: ${{ github.repository }}
+      OWNER: ${{ github.repository_owner }}
+      # URL pública da API, definida em Settings > Variables (não é segredo). Ex.: https://api.<dominio>
+      API_BASE_URL: ${{ vars.API_BASE_URL }}
+    steps:
+      - name: Validar entrada e configuração
+        run: |
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::sha deve ter 40 caracteres hexadecimais"; exit 1; }
+          [ -n "$API_BASE_URL" ] || { echo "::error::defina a variável de repositório API_BASE_URL"; exit 1; }
+
+      # Nada vai para produção sem app e backend verdes (§11.5), nem sem imagem construída e varrida.
+      - name: Exigir verificações verdes no commit
+        run: |
+          results="$(gh api "repos/$REPO/commits/$SHA/check-runs?per_page=100" --jq '.check_runs[] | "\(.name)=\(.conclusion)"')"
+          echo "$results"
+          for check in app backend image scan; do
+            grep -qx "$check=success" <<<"$results" || { echo "::error::a verificação '$check' não está verde para $SHA"; exit 1; }
+          done
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Registrar o SHA anterior
+        id: previous
+        run: |
+          # Melhor esforço: o SHA da versão que hoje carrega a etiqueta production.
+          previous="$(gh api "/orgs/$OWNER/packages/container/aprovaai-backend/versions" --paginate \
+            --jq '.[] | select(.metadata.container.tags | index("production")) | .metadata.container.tags[]' 2>/dev/null \
+            | grep -E '^[0-9a-f]{40}$' | head -n 1 || true)"
+          echo "sha=${previous:-desconhecido}" >> "$GITHUB_OUTPUT"
+
+      - name: Mover a etiqueta production
+        run: docker buildx imagetools create -t "$IMAGE:production" "$IMAGE:$SHA"
+
+      # A VM busca a etiqueta a cada 2 minutos; a espera cobre o ciclo mais a subida dos contêineres.
+      - name: Aguardar /readyz
+        id: readyz
+        run: |
+          sleep 150
+          for attempt in $(seq 1 30); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$API_BASE_URL/readyz" || true)"
+            echo "tentativa $attempt: HTTP $code"
+            if [ "$code" = "200" ]; then echo "code=$code" >> "$GITHUB_OUTPUT"; exit 0; fi
+            sleep 20
+          done
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "::error::/readyz não respondeu 200; para voltar, rode este fluxo com o SHA anterior"
+          exit 1
+
+      - name: Relatório do deploy
+        if: always()
+        run: |
+          approvers="$(gh api "repos/$REPO/actions/runs/${{ github.run_id }}/approvals" --jq '[.[].user.login] | join(", ")' 2>/dev/null || true)"
+          {
+            echo "### Deploy de produção"
+            echo "- SHA promovido: \`$SHA\`"
+            echo "- SHA anterior (para rollback): \`${{ steps.previous.outputs.sha }}\`"
+            echo "- Horário (UTC): $(date -u +%FT%TZ)"
+            echo "- Disparado por: ${{ github.triggering_actor }}"
+            echo "- Aprovado por: ${approvers:-não identificado}"
+            echo "- /readyz: HTTP ${{ steps.readyz.outputs.code }}"
+            echo "- Resultado do fluxo: ${{ job.status }}"
+          } >> "$GITHUB_STEP_SUMMARY"
