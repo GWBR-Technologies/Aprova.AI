@@ -20,6 +20,7 @@ O Aprova.AI é um aplicativo para Android e iOS, feito com Expo e TypeScript, pa
 12. [Testes e validação](#12-testes-e-validação)
 13. [Governança dos documentos](#13-governança-dos-documentos)
 14. [Decisões em aberto](#14-decisões-em-aberto)
+15. [Guias de implementação](#15-guias-de-implementação)
 
 ## 1. Objetivo e escopo
 
@@ -31,7 +32,7 @@ Este documento define:
 - as regras de organização de diretórios e a refatoração aplicada ao repositório;
 - as decisões em aberto que dependem de aprovação (§14).
 
-Este documento não implementa funcionalidades, não adiciona dependências e não define autenticação, banco de dados, provedor de notificações nem a rubrica de correção de redações.
+Este documento não implementa funcionalidades, não adiciona dependências e não define a rubrica de correção de redações. Autenticação, banco de dados, canal de eventos e demais escolhas de tecnologia são propostos nos guias de implementação ([§15](#15-guias-de-implementação)) e só valem depois de aprovados ([§14](#14-decisões-em-aberto)).
 
 **Estado de partida (verificado em `package.json` e no código):** Expo `~57.0.24`, React Native `0.86.3`, React `19.2.3` e TypeScript `~6.0.3` em modo estrito. Não há roteador, cliente de rede, persistência, gerenciador de estado nem scripts de lint, testes ou verificação de tipos. O código existente é uma tela vazia em `src/app/App.tsx`.
 
@@ -47,6 +48,11 @@ Este documento não implementa funcionalidades, não adiciona dependências e n�
 | D6 | A IA só é chamada por Workers, atrás de `AiPort`. | Isola timeout, custo, limite de taxa e troca de provedor ou de modelo. |
 | D7 | Repositório único: app Expo na raiz, `backend/` e `contracts/`, sem workspaces nesta fase. | Evita mover o Expo e reconfigurar Metro, `app.json` e `tsconfig` antes de existir código de backend com dependências próprias. |
 | D8 | O lado de leitura é eventualmente consistente; a interface mostra estados explícitos de recebido, em processamento, concluído e falha. | A projeção é assíncrona; o aluno nunca vê um estado ambíguo. |
+| D9 | A correção de redação por IA é exclusiva de usuários com plano `PREMIUM`, limitada a 4 correções por mês; a regra é verificada no comando `SubmitEssay` antes do `202`. | Regra de produto e controle do único custo que cresce por usuário (a IA). |
+| D10 | Todo recurso de infraestrutura e de ferramenta deve ter opção gratuita; custo só entra com aprovação explícita, exceto a IA. | Regra do projeto; o custo recorrente fica restrito ao que o produto precisa. |
+| D11 | Hospedagem inicial na Oracle Cloud (Always Free) com Docker Compose; migração planejada para o Render (pago) quando a carga ou a operação exigirem. | Único caminho gratuito que atende aos requisitos do Redis do BullMQ (persistência AOF e `noeviction`). |
+| D12 | Lançamento em Android e iOS; as contas de desenvolvedor da Apple e do Google Play já existem e as licenças ficam fora do orçamento do projeto. | Decisão do responsável pelo produto. |
+| D13 | O domínio já existente (registrado na Hostinger) serve a API por um subdomínio (`api.`) apontado para o servidor. | Evita custo de domínio; HTTPS gratuito pelo servidor web do §10. |
 
 Alternativas consideradas para D7: monorepo com `apps/mobile`, `apps/api` e `apps/worker` (adiado: exige mover o Expo e alterar configuração de pacotes) e repositório separado para o backend (adiado: dificulta compartilhar `contracts/` e revisar mudanças de contrato em um único lugar). A migração para workspaces é compatível com esta estrutura.
 
@@ -94,6 +100,14 @@ flowchart TB
 - Todo comando carrega `commandId` (UUID gerado no cliente), `issuedAt` (ISO 8601 UTC) e o `payload`. O `commandId` é a chave de idempotência: reenviar o mesmo comando devolve a mesma resposta e não repete o efeito.
 - O handler valida o comando na borda, aplica as regras de `domain/`, grava o novo estado e a mensagem de saída na mesma transação e responde `202`.
 - O write store é otimizado para gravações rápidas: inserções e atualizações simples, sem joins de leitura. A tecnologia está em aberto (§14).
+
+### Elegibilidade e cota da correção de redação (D9)
+
+- Só usuários com plano `PREMIUM` ativo podem enviar redação para correção por IA. O handler de `SubmitEssay` consulta o plano por uma porta (`EntitlementPort`) e nunca confia em dado informado pelo app.
+- O limite é de 4 correções por usuário por mês corrido, contado no fuso `America/Sao_Paulo` (premissa a confirmar com o produto, §14). A reserva da cota e a gravação da redação acontecem na mesma transação do comando.
+- Sem plano Premium, o comando é rejeitado com `403` e o código `PREMIUM_REQUIRED`. Com a cota esgotada, a rejeição é `403` com `ESSAY_QUOTA_EXCEEDED`, `limit`, `used` e `resetsAt`. Nenhuma das duas consome cota nem cria job.
+- Uma correção que termina em `EssayCorrectionFailed` permanente devolve a cota reservada, na mesma transação que grava a falha. Reenviar o mesmo `commandId` não reserva cota de novo.
+- Como o usuário se torna Premium (assinatura e cobrança) está em aberto (§14); a arquitetura exige apenas que o plano seja consultável pela `EntitlementPort`.
 
 ### Lado de leitura
 
@@ -198,7 +212,8 @@ Nomes de fila usam kebab-case. Uma fila nova entra nesta tabela antes de existir
 
 ### Regras para a IA
 
-- O modelo informado é GPT 6.1 - Terra. O identificador exato do provedor é configuração do servidor e deve ser confirmado antes da implementação (§14).
+- O modelo informado é GPT 6.1 - Terra. A página de preços da OpenAI o lista como `gpt-6.1-terra`; o identificador é configuração do servidor e deve ser confirmado na documentação da API antes da implementação (§14).
+- Preços por 1 milhão de tokens (padrão): entrada US$ 1,00, entrada em cache US$ 0,05, saída US$ 5,00, gravação em cache de 30 min US$ 1,25 e de 12 h US$ 2,50. As estimativas de custo por mil usuários estão nos guias (§15).
 - A chave de API existe só no servidor, fora do repositório, e nunca no app.
 - Prompts são versionados em `backend/src/infrastructure/ai/prompts`; o resultado registra `promptVersion` e o modelo usado, para auditoria.
 - A interface nunca mostra a saída bruta da IA nem detalhes de erro do provedor; em falha, mostra uma mensagem compreensível e a ação de recuperação.
@@ -234,6 +249,8 @@ sequenceDiagram
   QA-->>App: Corrigida (com asOf)
   App-->>A: Mostra a correção
 ```
+
+No passo `POST SubmitEssay`, a API valida identidade, plano Premium e cota (§4) antes de gravar. Se alguma validação falhar, responde `403` e o app mostra a mensagem correspondente em vez de “Redação recebida com sucesso!”; a confirmação só aparece depois do `202`.
 
 ### 8.2 Conclusão de simulado longo
 
@@ -281,6 +298,7 @@ A consulta vai direto à API de consultas e lê o read store. Não passa por com
 Aprova.AI/
 ├── index.ts                    # Entrada do Expo (registerRootComponent); é o `main` do package.json
 ├── app.json
+├── eas.json                    # Perfis do EAS Build (nasce quando o primeiro build for configurado)
 ├── package.json
 ├── tsconfig.json
 ├── assets/                     # Ícones e imagens
@@ -318,7 +336,9 @@ Aprova.AI/
 │       ├── api/                # HTTP: rotas de comando e rotas de consulta, separadas
 │       ├── workers/            # Um processador BullMQ por fila
 │       └── bootstrap/          # Composition roots: api.ts e worker.ts
-├── docs/                       # Documentação (ARQUITETURA.md e .pdf, guias, design)
+├── infra/                      # Implantação: Docker Compose, Caddyfile e scripts (nasce no primeiro uso)
+├── .github/workflows/          # Integração e entrega contínuas (nasce no primeiro uso)
+├── docs/                       # Documentação (ARQUITETURA, guias de implementação, design)
 ├── .claude/ e .agents/         # Regras e workflows para assistência ao desenvolvimento
 └── README.md
 ```
@@ -333,7 +353,7 @@ Para não criar pastas vazias nem abstrações sem uso, o repositório contém h
 | --- | --- |
 | `index.ts`, `src/app/` | `src/components/`, `src/hooks/`, `src/constants/theme.ts` |
 | `contracts/`, `src/features/`, `src/core/` (README) | Subpastas de `contracts/`, de `src/core/` e de cada contexto |
-| `backend/src/domain`, `application`, `infrastructure`, `api`, `workers`, `bootstrap` (README) | Subpastas de `application/` e `infrastructure/`, `backend/package.json` |
+| `backend/src/domain`, `application`, `infrastructure`, `api`, `workers`, `bootstrap` (README) | Subpastas de `application/` e `infrastructure/`, `backend/package.json`, `infra/`, `.github/workflows/`, `eas.json` |
 
 ### 10.3 Regras de dependência
 
@@ -359,12 +379,13 @@ Contextos do app se comunicam por eventos e contratos, nunca importando uns aos 
 - Pastas em kebab-case; um arquivo, uma responsabilidade.
 - Sufixos por papel: `*.command.ts`, `*.query.ts`, `*.event.ts`, `*.handler.ts`, `*.projector.ts`, `*.worker.ts`, `*.port.ts`, `*.adapter.ts`.
 - Tipos ficam junto do único consumidor. Um tipo usado pelo app e pelo backend vai para `contracts/` (a segunda utilização real).
-- `contracts/` só tem tipos e constantes. Esquemas de validação em tempo de execução entram quando a dependência de validação for aprovada (§14).
+- `contracts/` só tem tipos, sem código executável. Valores de negócio, como o limite de correções por mês, são configuração do servidor e chegam ao app por consulta. A validação em tempo de execução fica no backend (§14).
 - Arquivos específicos de plataforma (`*.web.tsx`) ficam ao lado do arquivo nativo.
 - Não há barramento genérico de comandos ou consultas: rotas e telas chamam o handler diretamente. Um barramento só entra quando houver necessidade real (por exemplo, middleware comum).
 - O alias `@/` (para `src/`) e quaisquer outros aliases entram no `tsconfig.json` junto do primeiro uso; hoje não há aliases configurados.
 - Enquanto o Expo Router não for aprovado, `src/app/` contém a composição do app. Se for aprovado, esta seção registra para onde a composição migra, porque `src/app/` passa a conter somente rotas.
 - Quando `backend/package.json` existir, o `tsconfig.json` da raiz passa a excluir `backend/`, que terá o seu.
+- `infra/` e `.github/workflows/` contêm só configuração e scripts, nunca regra de negócio nem segredos.
 
 ### 10.5 Onde colocar cada coisa
 
@@ -406,6 +427,7 @@ Nenhuma atividade em segundo plano se perde porque há cinco proteções em cama
 Segurança:
 
 - Segredos e chaves ficam fora do repositório. O `.gitignore` atual cobre `.env*.local`, não `.env`; revise a cobertura antes de introduzir variáveis de ambiente.
+- O repositório é público: nada sensível entra nele nem nos logs da integração contínua.
 - Todo dado é validado na borda: comando, consulta, evento e saída da IA.
 - Erros mostrados ao aluno não expõem identificadores, tokens nem payloads de falha.
 - A identidade do aluno e a política de dados pessoais (LGPD) estão em aberto (§14); nenhum comando ou consulta é implementado sem definir a quem o dado pertence.
@@ -425,6 +447,7 @@ Segurança:
 | `docs/Claude.md` e `docs/CLAUDE.local.md` | Guia operacional e preferências locais. |
 | `docs/Codex.md` | Resumo para o Codex. |
 | `docs/DESIGN.md` e `docs/DesignIA_Regras.md` | Design, interface e checklist contra aparência genérica. |
+| `docs/IMPLEMENTACAO-FRONTEND.md`, `docs/IMPLEMENTACAO-BACKEND.md`, `docs/IMPLEMENTACAO-DEVOPS.md` e os PDFs correspondentes | Guias de implementação por equipe, derivados deste documento. |
 | `README.md` | Visão geral, comandos e árvore de arquivos. |
 | `.claude/` e `.agents/` | Regras, comandos, skills e agentes. |
 
@@ -433,24 +456,38 @@ Ao mudar uma decisão ou a estrutura:
 1. Atualize `docs/ARQUITETURA.md`.
 2. Atualize a árvore e o estado atual no `README.md`.
 3. Atualize os guias (`AGENTS.md`, `Claude.md`, `Codex.md`) e as regras em `.claude/` e `.agents/` que citem o que mudou.
-4. Regenere `docs/ARQUITETURA.pdf`.
+4. Regenere `docs/ARQUITETURA.pdf` e os PDFs dos guias de implementação afetados.
 5. Faça um commit por assunto, no padrão `(tipo): Frase no passado`, como em `(docs): Adicionado README.md completo e estruturado desta fase inicial`.
 
 ## 14. Decisões em aberto
 
-Cada item abaixo exige decisão antes de qualquer implementação que dependa dele.
+Cada item abaixo exige decisão antes de qualquer implementação que dependa dele. A coluna Status indica o que já está decidido e o que os guias de implementação apenas propõem; proposta não autoriza instalar dependência nem criar infraestrutura.
 
-| Decisão | Impacto |
-| --- | --- |
-| Autenticação e identidade do aluno | Todo comando, consulta e evento precisa pertencer a um aluno. |
-| Banco do write store e do read store | Modelagem de agregados, projeções e outbox. |
-| Runtime e framework do backend | Estrutura de `backend/package.json` e de `api/`. |
-| Hospedagem do Redis e dos Workers | Persistência AOF, alertas e escala. |
-| Canal de eventos para o app (push, polling ou SSE) | Como o app descobre `EssayCorrected` e `MockExamProcessed`. |
-| Persistência local do app (outbox) | Dependência nova no app. |
-| Biblioteca de validação em tempo de execução | Esquemas em `contracts/`. |
-| Expo Router e biblioteca de dados do cliente | Onde fica a composição de `src/app/` (§10.4). |
-| Contrato exato do GPT 6.1 - Terra (identificador, limites, formato de saída) | `AiPort`, limites de taxa e prompts. |
-| Rubrica de correção de redação e regras de simulado | Esquema do resultado da IA e dos eventos. |
-| LGPD: base legal, retenção e exclusão | Dados enviados à IA e guardados no servidor. |
-| Executor de testes e integração contínua | Seção 12. |
+| Decisão | Impacto | Status |
+| --- | --- | --- |
+| Autenticação e identidade do aluno | Todo comando, consulta e evento precisa pertencer a um aluno. | Proposta nos guias: login com Google e Apple, tokens JWT da API; aguarda aprovação. |
+| Banco do write store e do read store | Modelagem de agregados, projeções e outbox. | Proposta: PostgreSQL com esquemas `write` e `read` na mesma instância; aguarda aprovação. |
+| Runtime e framework do backend | Estrutura de `backend/package.json` e de `api/`. | Proposta: Node.js 24 LTS, Fastify, Drizzle ORM, BullMQ, Vitest; aguarda aprovação. |
+| Hospedagem do Redis e dos Workers | Persistência AOF, alertas e escala. | Decidido (D11): Oracle Always Free com Docker Compose; Render depois. |
+| Canal de eventos para o app | Como o app descobre `EssayCorrected` e `MockExamProcessed`. | Proposta: consulta periódica com intervalo crescente, com push do Expo como aviso; aguarda aprovação. |
+| Persistência local do app (outbox) | Dependência nova no app. | Proposta: `expo-sqlite`; aguarda aprovação. |
+| Biblioteca de validação em tempo de execução | Esquemas de validação e o impacto em D7. | Proposta: `zod` somente no backend, com `contracts/` só de tipos (o esquema do backend é verificado contra o tipo com `satisfies`), o que preserva D7; aguarda aprovação. |
+| Expo Router e biblioteca de dados do cliente | Onde fica a composição de `src/app/` (§10.4). | Proposta: Expo Router e TanStack Query; aguarda aprovação. |
+| Contrato exato do GPT 6.1 - Terra | `AiPort`, limites de taxa e prompts. | Parcial: identificador e preços confirmados; limites de contexto e de saída e formato de saída em aberto. |
+| Rubrica de correção de redação e regras de simulado | Esquema do resultado da IA e dos eventos. | Em aberto (produto). |
+| Fonte do plano Premium (assinatura, cobrança, preço, período de teste) | Implementação real de `EntitlementPort` e custos de loja. | Em aberto; custos estimados nos guias. |
+| Janela da cota de redação (mês corrido ou 30 dias móveis) | Regra de `SubmitEssay` e texto da interface. | Premissa: mês corrido em `America/Sao_Paulo`; confirmar com o produto. |
+| Exceção: `GetEntitlements` lê o write store pela `EntitlementPort` | O plano e a cota precisam ser exatos; a alternativa são os eventos `PlanChanged` e `UserRegistered` mais uma projeção. | Proposta nos guias; aguarda aprovação. |
+| Comando `RegisterPushToken`, consulta `GetEssayList` e fila `notifications` | Catálogos de comandos e consultas (§4) e de filas (§6), para o push e o histórico de redações. | Propostas; só entram nas tabelas desta arquitetura depois de aprovadas. |
+| LGPD: base legal, retenção e exclusão | Dados enviados à IA e guardados no servidor. | Em aberto. |
+| Executor de testes e integração contínua | Seção 12. | Proposta: Vitest (backend e `contracts/`), `jest-expo` (app) e GitHub Actions; aguarda aprovação. |
+
+## 15. Guias de implementação
+
+Cada equipe tem um guia que reúne tudo o que é preciso para implementar sua parte, derivado deste documento. Em caso de divergência, este documento prevalece e o guia deve ser corrigido.
+
+| Guia | Público | Arquivos |
+| --- | --- | --- |
+| Implementação Front-End | Equipe do app Expo | `docs/IMPLEMENTACAO-FRONTEND.md` e `.pdf` |
+| Implementação Back-End | Equipe de API, Workers e dados | `docs/IMPLEMENTACAO-BACKEND.md` e `.pdf` |
+| Implementação DevOps | Equipe de infraestrutura, CI/CD e operação | `docs/IMPLEMENTACAO-DEVOPS.md` e `.pdf` |

@@ -1,6 +1,6 @@
 # contracts
 
-Contrato entre o app e o backend: comandos, consultas e eventos, como tipos e constantes, sem lógica. Subpastas `commands/`, `queries/` e `events/` nascem com o primeiro contrato aprovado.
+Contrato entre o app e o backend: comandos, consultas e eventos, como tipos, sem lógica nem código executável (valores de negócio, como o limite de correções por mês, são configuração do servidor e chegam ao app por consulta). Subpastas `commands/`, `queries/` e `events/` nascem com o primeiro contrato aprovado.
 
 - Pode importar: apenas outros arquivos de `contracts/`.
 - Não pode importar: `src/` e `backend/`.
