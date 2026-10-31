@@ -1,74 +1,88 @@
 # Instruções do Projeto para Claude e Codex
 
-Este é o único `AGENTS.md` do repositório. Ele contém as instruções compartilhadas pelos agentes; o Codex o recebe no início da sessão por meio do hook local em `.codex/hooks.json`.
+Este é o único `AGENTS.md` do repositório e contém as instruções compartilhadas pelos agentes. Não há configuração `.codex/` versionada; os workflows reutilizáveis ficam em `.agents/skills/` e, para o Claude, em `.claude/`.
 
 ## Contexto do Repositório
 
-`medidorPressao` é um aplicativo Expo 57 com React Native, React 19 e TypeScript estrito. A navegação usa Expo Router; as rotas ficam em `src/app/`, componentes compartilhados em `src/components/`, hooks em `src/hooks/` e tokens visuais em `src/constants/theme.ts`.
+`Aprova.AI` é um aplicativo para Android e iOS, feito com Expo 57, React Native 0.86, React 19 e TypeScript estrito, para estudo para o Enem, a Fuvest e outros vestibulares brasileiros, com apoio e correção por IA (GPT 6.1 - Terra).
 
-O aplicativo é destinado a iOS, Android e web estática, com orientação preferencial em retrato. Ele está no estágio inicial: a tela inicial está vazia e não há contrato implementado para medições, sensor, unidades, persistência, autenticação ou regras clínicas. O nome e o histórico indicam um medidor digital de pressão e compressão, mas não substituem um requisito de produto aprovado.
+A arquitetura é Event-Driven Architecture + CQRS, com BullMQ + Redis para filas e Workers em segundo plano para a IA. A fonte de verdade é `docs/ARQUITETURA.md` (com o PDF `docs/ARQUITETURA.pdf`).
+
+O repositório está no estágio inicial: `src/app/App.tsx` renderiza um contêiner vazio e não há navegação, cliente de rede, persistência, autenticação, backend nem scripts de lint, testes ou verificação de tipos. A orientação é retrato e a interface é clara (`app.json`). O script `web` existe, mas as dependências web não estão declaradas.
+
+## Arquitetura
+
+- Comandos (escrita) e consultas (leitura) são separados. O trabalho pesado e a IA rodam em Workers que consomem filas BullMQ + Redis.
+- O app responde ao aluno de imediato (`202 Accepted`, por exemplo “Redação recebida com sucesso!”) e acompanha o processamento por consultas e eventos.
+- Estrutura: app Expo em `src/` (`app/`, `features/<contexto>/{commands,queries,events,ui}`, `core/`, `components/`, `hooks/`, `constants/`), contratos compartilhados em `contracts/` e API com Workers em `backend/src/`. As regras de dependência entre camadas estão em `docs/ARQUITETURA.md` (§10) e no `README.md` de cada camada.
+- A IA só é chamada por Workers, atrás de `AiPort`. Chaves de API não ficam no app nem no repositório.
 
 ## Prioridade e Escopo
 
 Em caso de conflito, siga esta ordem:
 
 1. Pedido explícito do usuário e requisitos aprovados.
-2. Código, `package.json`, `app.json`, `tsconfig.json`, testes e documentação deste repositório.
+2. Código, `package.json`, `app.json`, `tsconfig.json`, testes e documentação deste repositório, incluindo `docs/ARQUITETURA.md`.
 3. Estas instruções.
 4. Convenções gerais.
 
-Não escolha silenciosamente entre requisitos conflitantes. Explique o conflito e peça direção. Antes de editar, inspecione o menor conjunto relevante de rotas, componentes, hooks e configurações. Para uma tarefa com várias etapas, defina critérios observáveis de sucesso e mantenha o plano curto.
+Não escolha silenciosamente entre requisitos conflitantes. Explique o conflito e peça direção. Antes de editar, inspecione o menor conjunto relevante de camadas, componentes e configurações. Para uma tarefa com várias etapas, defina critérios observáveis de sucesso e mantenha o plano curto.
 
 Altere apenas os arquivos necessários. Não refatore, reformate ou remova código adjacente sem relação direta com o pedido. Remova somente os itens que a própria alteração tiver tornado obsoletos. Não crie abstrações para um único uso, funcionalidades especulativas, dependências ou configurações sem aprovação.
 
 ## Convenções de Código
 
-- Mantenha rotas em `src/app/`, componentes reutilizáveis em `src/components/`, hooks em `src/hooks/` e tokens compartilhados em `src/constants/theme.ts`.
-- Preserve a convenção de rotas do Expo Router e os arquivos específicos de plataforma, como `*.web.tsx`.
-- Use componentes React Native e `StyleSheet` para UI nativa compartilhada. Mantenha CSS específico de navegador em arquivos web e em `src/global.css`.
-- Preserve a estrutura, os exports e o estilo de imports existente. Agrupe imports de terceiros, relativos e `@/` com uma linha em branco entre grupos.
-- Use tipos explícitos nas fronteiras: props, parâmetros de rota, dados persistidos e dados de dispositivos ou rede. Evite `any`, supressões de tipo, casts amplos e regras de lint desativadas.
-- Mantenha tipos próximos do único consumidor; mova-os para um local compartilhado somente após uma segunda reutilização real.
+- Coloque cada código na camada definida em `docs/ARQUITETURA.md` (§10): composição em `src/app/`, contextos em `src/features/`, infraestrutura do cliente em `src/core/`, UI compartilhada em `src/components/`, hooks em `src/hooks/`, tokens em `src/constants/theme.ts`, contratos em `contracts/` e backend em `backend/src/`. Subpastas e arquivos nascem junto do primeiro uso real.
+- Respeite as regras de importação entre camadas descritas no `README.md` de cada camada. Contextos de `src/features/` não importam uns aos outros.
+- Mantenha o ponto de entrada em `index.ts` (raiz), declarado em `package.json`. Se o Expo Router for aprovado, `src/app/` passa a conter somente rotas e a composição migra conforme `docs/ARQUITETURA.md` (§10.4).
+- Preserve arquivos específicos de plataforma, como `*.web.tsx`.
+- Use componentes React Native e `StyleSheet` para UI nativa compartilhada. Mantenha CSS específico de navegador em arquivos web.
+- Preserve a estrutura, os exports e o estilo de imports existente. Agrupe imports de terceiros, relativos e `@/` com uma linha em branco entre grupos. O alias `@/` ainda não está configurado no `tsconfig.json`; ele entra junto do primeiro uso.
+- Use tipos explícitos nas fronteiras: props, parâmetros de rota, comandos, consultas, eventos, dados persistidos, payloads de rede e saída da IA. Evite `any`, supressões de tipo, casts amplos e regras de lint desativadas.
+- Mantenha tipos próximos do único consumidor; mova-os para um local compartilhado somente após uma segunda reutilização real. Um tipo usado pelo app e pelo backend vai para `contracts/`.
+- Não crie barramento genérico de comandos ou consultas: rotas e telas chamam o handler diretamente.
 - Comente decisões, restrições ou comportamento não óbvio. Não documente o que o código já deixa claro e não adicione comentários `TODO`.
 
 ## Interface e Acessibilidade
 
-- Reutilize `Colors`, `Fonts`, `Spacing`, `MaxContentWidth`, `ThemedView` e `ThemedText` antes de criar primitivas visuais.
-- Preserve os modos claro e escuro ao mudar UI compartilhada.
+- A identidade visual do Aprova.AI ainda não está definida (`docs/DESIGN.md`). Reutilize tokens de `src/constants/theme.ts` e componentes compartilhados quando existirem e peça direção antes de inventar paleta, tipografia ou sistema visual.
+- Respeite `userInterfaceStyle` de `app.json` (hoje `light`). Se o modo escuro for introduzido, cubra os dois modos na UI compartilhada.
 - Projete primeiro para telas estreitas em retrato; preserve ordem de leitura, foco visível e largura útil na implementação web.
 - Use rótulos claros, nomes acessíveis, contraste adequado e alvos de toque confortáveis. Não dependa apenas de cor, ícone, animação ou gesto para comunicar estado.
-- Cubra estados de pressionado, foco, desabilitado, carregamento, vazio, erro e recuperação quando eles forem relevantes.
-- Não trate os rótulos, ativos, rotas ou componentes iniciais do Expo como requisitos de produto.
-- Evite efeitos decorativos, painéis de métricas, leituras fictícias e elementos que não apoiem uma tarefa real.
+- Cubra os estados que se aplicam: pressionado, foco, desabilitado, carregamento, vazio, erro, recuperação, offline, recebido e em processamento (`docs/ARQUITETURA.md`, §9).
+- Não trate os rótulos, ativos ou telas iniciais do Expo como requisitos de produto.
+- Evite efeitos decorativos, painéis de métricas, dados fictícios de desempenho e elementos que não apoiem uma tarefa real.
 
-## Medições e Limites de Produto
+## Dados, Contratos e Limites de Produto
 
-- Não invente leituras, unidades, faixas, alertas, tendências, calibração, conexão de sensor, histórico, diagnósticos ou orientação clínica.
-- Antes de implementar uma medição, obtenha um contrato que defina origem, unidade, validade, horário, estados de erro e comportamento esperado.
-- Mantenha valores exibidos, rascunhos editáveis e estados de carregamento ou erro separados.
-- Não introduza comunicação de rede, conexão com dispositivo, persistência, autenticação ou telemetria sem pedido explícito e contrato definido.
-- Ao implementar uma fronteira de dados, valide dados antes que eles afetem UI ou cálculos e modele unidade, horário, origem e validade explicitamente.
+- Não invente questões, gabaritos, notas, pontuações, estatísticas de desempenho, correções de redação, conteúdo curricular, metas, prazos ou recomendações pedagógicas.
+- Antes de implementar um comando, consulta ou evento, obtenha um contrato aprovado em `contracts/` que defina origem, formato, validade, horário (`occurredAt` e `asOf`), estados de erro e comportamento esperado.
+- A identidade do aluno, a rubrica de correção de redação, as regras de simulado e a política de dados pessoais são requisitos em aberto (`docs/ARQUITETURA.md`, §14). Peça direção antes de depender deles.
+- Mantenha dados exibidos, rascunhos editáveis (como o texto de uma redação) e estados de carregamento, processamento ou erro separados.
+- Não implemente comunicação de rede, persistência, autenticação, telemetria nem integração com a IA sem pedido explícito e contrato definido. Ao implementar, siga a arquitetura: comando → outbox local → API de comandos (`202`); consulta → API de consultas; IA somente em Workers.
+- Ao implementar uma fronteira de dados, valide os dados antes que eles afetem UI ou cálculos e modele horário, origem e validade explicitamente.
+- Nunca mostre ao aluno a saída bruta da IA nem detalhes de erro do provedor.
 
 ## Validação Local
 
-Os scripts existentes são `npm run start`, `npm run android`, `npm run ios`, `npm run web`, `npm run lint` e `npm run reset-project`.
+Os scripts existentes são `npm run start`, `npm run android`, `npm run ios` e `npm run web`.
 
-- Execute `npm run lint` quando aplicável à alteração.
-- Valide na plataforma afetada somente quando houver um destino local adequado. Mudanças em rotas ou componentes compartilhados exigem considerar as versões nativa e web.
-- Não há scripts configurados para verificação de tipos, testes, testes de ponta a ponta ou build de produção. Não os presuma nem os apresente como disponíveis.
-- `npm run reset-project` reorganiza o conteúdo inicial; só o execute quando isso fizer parte explícita da tarefa.
+- Não há scripts configurados para lint, verificação de tipos, testes, testes de ponta a ponta ou build de produção. Não os presuma nem os apresente como disponíveis.
+- A verificação de tipos pode ser feita manualmente com `npx tsc --noEmit`. Relate-a como verificação manual, não como script do projeto.
+- Valide na plataforma afetada somente quando houver um destino local adequado. Mudanças em componentes compartilhados exigem considerar as versões nativa e web.
 - Relate os comandos executados, resultados e o que não pôde ser validado. Não alegue sucesso sem evidência.
 
 ## Segurança e Git
 
-- Não leia, imprima, altere ou versione segredos, credenciais, `.env` ou `.npmrc`.
+- Não leia, imprima, altere ou versione segredos, credenciais, `.env` ou `.npmrc`. O `.gitignore` atual cobre `.env*.local`, não `.env`.
 - Não adicione, atualize, remova ou substitua dependências sem aprovação explícita.
 - Não faça commit, push, publicação ou release sem autorização explícita.
+- Mensagens de commit seguem o padrão do histórico, `(tipo): Frase no passado`, como em `(docs): Adicionado README.md completo e estruturado desta fase inicial`. Não mencione assistentes de IA nem `Co-Authored-By` em commits ou descrições de PR. Um commit por assunto.
 - Não use exclusão recursiva, `git clean` ou `git reset --hard`.
-- Solicite direção antes de mudanças que definam dados de medição, ações irreversíveis, permissões, segurança ou comportamento do sensor.
+- Solicite direção antes de mudanças que definam dados de estudo, ações irreversíveis, permissões, segurança, dados pessoais ou o contrato com a IA.
 
 ## Regras de Revisão de Código
 
-Ao revisar mudanças, reporte apenas problemas concretos e acionáveis. Verifique correção, regressões, comportamento de plataforma, Expo Router, acessibilidade, segurança, estados de UI e cobertura disponível. Para cada problema, informe prioridade, arquivo e linha, evidência, impacto e a menor correção recomendada. Não reporte preferências puramente estilísticas.
+Ao revisar mudanças, reporte apenas problemas concretos e acionáveis. Verifique correção, regressões, comportamento de plataforma, regras de importação entre camadas, idempotência e tratamento de falhas em comandos, eventos e Workers, acessibilidade, segurança, estados de UI e cobertura disponível. Para cada problema, informe prioridade, arquivo e linha, evidência, impacto e a menor correção recomendada. Não reporte preferências puramente estilísticas.
 
 Se não houver um problema concreto, responda: `No actionable findings found.`

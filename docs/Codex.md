@@ -1,28 +1,28 @@
 # Guia do Codex
 
-As instruções operacionais compartilhadas estão em `docs/AGENTS.md`, o único `AGENTS.md` do repositório. O hook de início em `.codex/hooks.json` entrega esse conteúdo ao Codex ao abrir ou retomar uma sessão. Ele consolida o contexto, as regras de implementação, validação, revisão, segurança e as preferências locais que antes estavam distribuídas nas instruções do Claude.
+As instruções operacionais compartilhadas estão em `docs/AGENTS.md`, o único `AGENTS.md` do repositório. Ele consolida o contexto, as regras de implementação, validação, revisão, segurança e as preferências locais que antes estavam distribuídas nas instruções do Claude. A arquitetura e a organização de diretórios estão em `docs/ARQUITETURA.md`.
 
 ## Contexto Aplicado
 
-- Aplicativo Expo 57 com React Native, React 19, TypeScript e Expo Router.
-- Rotas em `src/app/`, componentes em `src/components/`, hooks em `src/hooks/` e tokens em `src/constants/theme.ts`.
-- Destinos iOS, Android e web estática; orientação preferencial em retrato.
-- Projeto em estágio inicial, sem contrato de medição, sensor, unidade, persistência, autenticação ou regra clínica.
+- Aplicativo Expo 57 com React Native, React 19 e TypeScript estrito, para estudo para o Enem, a Fuvest e outros vestibulares, com apoio e correção por IA (GPT 6.1 - Terra).
+- Arquitetura EDA + CQRS com BullMQ + Redis e Workers em segundo plano; camadas em `src/` (app), `contracts/` e `backend/src/`.
+- Ponto de entrada em `index.ts`; composição em `src/app/`.
+- Projeto em estágio inicial, sem navegação, rede, persistência, autenticação, backend nem contratos implementados.
 
 ## Convenções Ativas
 
 O `AGENTS.md` orienta o Codex a:
 
 - realizar mudanças enxutas, baseadas no código existente e no pedido explícito;
-- preservar Expo Router, implementações específicas de plataforma e os tokens visuais atuais;
-- não inventar leituras, unidades, limites, alertas, comportamentos de sensor ou orientação clínica;
-- validar com os scripts realmente existentes, principalmente `npm run lint`;
+- respeitar as camadas e as regras de importação de `docs/ARQUITETURA.md` (§10), as implementações específicas de plataforma e os tokens visuais quando existirem;
+- não inventar questões, notas, desempenho, correções, regras de simulado ou comportamento da IA;
+- relatar a validação realmente possível: não há scripts de lint, testes ou tipos; `npx tsc --noEmit` é uma verificação manual;
 - solicitar aprovação para dependências, commits, pushes e mudanças que ampliem escopo;
 - informar verificações executadas e limitações de validação.
 
 ## Proteções de Comandos
 
-`.codex/config.toml`, `.codex/hooks.json` e `.codex/rules/safety.rules` fornecem configuração, carregamento das instruções e proteções para o Codex quando a configuração local do projeto é confiável. As regras e o hook bloqueiam `git reset --hard`, `git clean`, exclusão recursiva e `npm publish`; além disso, solicitam confirmação para commits, pushes e alterações de dependências.
+Este repositório não contém `.codex/` (configuração, hooks ou regras). As proteções versionadas são as do Claude, em `.claude/settings.json` e `.claude/hooks/validate-base.sh`, que bloqueiam `git reset --hard`, `git clean`, exclusão recursiva, push forçado, push direto para `main` ou `master` e `npm publish`. Quem usa o Codex deve respeitar as mesmas proibições listadas em `docs/AGENTS.md`.
 
 ## Workflows Reutilizáveis
 
