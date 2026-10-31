@@ -1,0 +1,84 @@
+name: ci
+
+# Somente o evento pull_request (nunca pull_request_target): PRs de forks não recebem segredos.
+on:
+  pull_request:
+  push:
+    branches: [development, master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      # Os scripts lint e typecheck nascem no marco F0 (proposta P8). Enquanto não
+      # existirem, o job avisa em vez de reprovar; com o script presente, a falha reprova.
+      - name: Lint, tipos e testes
+        run: |
+          for script in lint typecheck; do
+            if npm pkg get "scripts.$script" | grep -q '"'; then
+              npm run "$script"
+            else
+              echo "::warning title=Script ausente::npm run $script não existe (marco F0 pendente); verificação não executada."
+            fi
+          done
+          npm test --if-present
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: backend } }
+    services:
+      postgres:
+        image: postgres:18
+        env: { POSTGRES_PASSWORD: ci-only, POSTGRES_DB: aprovaai_test }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:8.2
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    # ci-only é a senha de um contêiner descartável de teste; não é segredo.
+    env:
+      DATABASE_URL: postgres://postgres:ci-only@localhost:5432/aprovaai_test
+      REDIS_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      # backend/package.json nasce no marco B0; até lá o job termina sem executar nada.
+      - id: guard
+        run: |
+          if [ -f package.json ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning title=Backend ausente::backend/package.json não existe (marco B0 pendente); verificações não executadas."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.guard.outputs.present == 'true'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - if: steps.guard.outputs.present == 'true'
+        run: npm ci
+      - if: steps.guard.outputs.present == 'true'
+        run: npm run typecheck
+      - if: steps.guard.outputs.present == 'true'
+        run: npm run lint
+      - if: steps.guard.outputs.present == 'true'
+        run: npm test

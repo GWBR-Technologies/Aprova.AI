@@ -1,0 +1,30 @@
+version: 2
+
+updates:
+  # Pacotes do SDK do Expo mudam em bloco com o SDK (npx expo install); só atualizações menores e de correção.
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: expo
+        update-types: ["version-update:semver-major"]
+      - dependency-name: react
+        update-types: ["version-update:semver-major"]
+      - dependency-name: react-native
+        update-types: ["version-update:semver-major"]
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+
+  - package-ecosystem: docker
+    directory: /backend
+    schedule: { interval: weekly }
+
+  - package-ecosystem: docker-compose
+    directory: /infra
+    schedule: { interval: weekly }
