@@ -6,7 +6,7 @@ Este é o único `AGENTS.md` do repositório e contém as instruções compartil
 
 `Aprova.AI` é um aplicativo para Android e iOS, feito com Expo 57, React Native 0.86, React 19 e TypeScript estrito, para estudo para o Enem, a Fuvest e outros vestibulares brasileiros, com apoio e correção por IA (GPT 6.1 - Terra).
 
-A arquitetura é Event-Driven Architecture + CQRS, com BullMQ + Redis para filas e Workers em segundo plano para a IA. A fonte de verdade é `docs/ARQUITETURA.md` (com o PDF `docs/ARQUITETURA.pdf`).
+A arquitetura é Event-Driven Architecture + CQRS, com BullMQ + Redis para filas e Workers em segundo plano para a IA. A fonte de verdade é `docs/ARQUITETURA.md` (com o PDF `docs/ARQUITETURA.pdf`). Os guias `docs/IMPLEMENTACAO-FRONTEND.md`, `docs/IMPLEMENTACAO-BACKEND.md` e `docs/IMPLEMENTACAO-DEVOPS.md` detalham a implementação de cada equipe e derivam dela. A correção de redação por IA é exclusiva do plano Premium, com 4 correções por mês, e a regra é aplicada no servidor (D9). Recursos devem ter opção gratuita; custo só com aprovação explícita, exceto a IA (D10).
 
 O repositório está no estágio inicial: `src/app/App.tsx` renderiza um contêiner vazio e não há navegação, cliente de rede, persistência, autenticação, backend nem scripts de lint, testes ou verificação de tipos. A orientação é retrato e a interface é clara (`app.json`). O script `web` existe, mas as dependências web não estão declaradas.
 
@@ -57,7 +57,7 @@ Altere apenas os arquivos necessários. Não refatore, reformate ou remova códi
 
 - Não invente questões, gabaritos, notas, pontuações, estatísticas de desempenho, correções de redação, conteúdo curricular, metas, prazos ou recomendações pedagógicas.
 - Antes de implementar um comando, consulta ou evento, obtenha um contrato aprovado em `contracts/` que defina origem, formato, validade, horário (`occurredAt` e `asOf`), estados de erro e comportamento esperado.
-- A identidade do aluno, a rubrica de correção de redação, as regras de simulado e a política de dados pessoais são requisitos em aberto (`docs/ARQUITETURA.md`, §14). Peça direção antes de depender deles.
+- A identidade do aluno, a rubrica de correção de redação, as regras de simulado, a fonte do plano Premium e a política de dados pessoais são requisitos em aberto (`docs/ARQUITETURA.md`, §14). Peça direção antes de depender deles.
 - Mantenha dados exibidos, rascunhos editáveis (como o texto de uma redação) e estados de carregamento, processamento ou erro separados.
 - Não implemente comunicação de rede, persistência, autenticação, telemetria nem integração com a IA sem pedido explícito e contrato definido. Ao implementar, siga a arquitetura: comando → outbox local → API de comandos (`202`); consulta → API de consultas; IA somente em Workers.
 - Ao implementar uma fronteira de dados, valide os dados antes que eles afetem UI ou cálculos e modele horário, origem e validade explicitamente.

@@ -55,7 +55,8 @@ tela (comandos) é separado do que o sistema processa em segundo plano
 para chamar a IA (GPT 6.1 - Terra) sem risco de timeout na API. A arquitetura
 completa, as decisões, os fluxos e as regras de organização de diretórios estão
 em [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md), também disponível em PDF
-([`docs/ARQUITETURA.pdf`](docs/ARQUITETURA.pdf)).
+([`docs/ARQUITETURA.pdf`](docs/ARQUITETURA.pdf)). Cada equipe tem um guia de
+implementação (Front-End, Back-End e DevOps) em `docs/`, com o PDF correspondente.
 
 Hoje o repositório contém apenas a aplicação Expo e a estrutura de camadas;
 BullMQ, Redis, backend e contratos ainda não estão implementados nem instalados.
@@ -71,7 +72,7 @@ BullMQ, Redis, backend e contratos ainda não estão implementados nem instalado
 | `assets/` | Ícones e imagens do aplicativo |
 | `app.json` | Nome, orientação e configuração das plataformas |
 | `tsconfig.json` | Configuração do TypeScript, estendendo a base do Expo |
-| `docs/` | Arquitetura, guias de trabalho e design |
+| `docs/` | Arquitetura, guias de implementação por equipe, guias de trabalho e design |
 | `.claude/` e `.agents/` | Regras e workflows para assistência ao desenvolvimento |
 
 O aplicativo está configurado com orientação em retrato e interface clara.
@@ -173,7 +174,7 @@ Aprova.AI/
 ├── backend/
 │   └── src/             # domain, application, infrastructure, api, workers, bootstrap
 ├── contracts/           # Contrato app <-> backend (comandos, consultas, eventos)
-├── docs/                # Arquitetura (ARQUITETURA.md e .pdf), guias e design
+├── docs/                # Arquitetura, guias de implementação (.md e .pdf), guias e design
 ├── src/
 │   ├── app/
 │   │   └── App.tsx      # Tela inicial (camada de composição)
@@ -221,6 +222,9 @@ Aprova.AI/
 ## Documentação complementar
 
 - [Arquitetura EDA + CQRS](docs/ARQUITETURA.md) ([PDF](docs/ARQUITETURA.pdf))
+- [Implementação Front-End](docs/IMPLEMENTACAO-FRONTEND.md) ([PDF](docs/IMPLEMENTACAO-FRONTEND.pdf))
+- [Implementação Back-End](docs/IMPLEMENTACAO-BACKEND.md) ([PDF](docs/IMPLEMENTACAO-BACKEND.pdf))
+- [Implementação DevOps](docs/IMPLEMENTACAO-DEVOPS.md) ([PDF](docs/IMPLEMENTACAO-DEVOPS.pdf))
 - [Instruções compartilhadas do projeto](docs/AGENTS.md)
 - [Guia operacional para Claude](docs/Claude.md)
 - [Guia do Codex](docs/Codex.md)

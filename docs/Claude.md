@@ -15,6 +15,7 @@ Use `docs/AGENTS.md` como o guia compartilhado do projeto. Este arquivo adiciona
 | Necessidade | Fonte |
 | --- | --- |
 | Arquitetura, decisões e organização de diretórios | `docs/ARQUITETURA.md` (e `docs/ARQUITETURA.pdf`) |
+| Implementação por equipe (stack gratuita, contratos, Premium, custos, marcos) | `docs/IMPLEMENTACAO-FRONTEND.md`, `docs/IMPLEMENTACAO-BACKEND.md` e `docs/IMPLEMENTACAO-DEVOPS.md` (e os PDFs) |
 | Regras de importação de cada camada | `README.md` dentro da camada (`contracts/`, `src/features/`, `src/core/`, `backend/src/*`) |
 | Contexto e regras compartilhadas por agentes | `docs/AGENTS.md` |
 | Convenções de TypeScript, React Native e camadas | `.claude/rules/code-style.md` |
