@@ -30,8 +30,17 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# local env files and secrets (the repository is public)
+.env
+.env.*
+*.env
 .env*.local
+!*.env.example
+!.env.example
+*.age
+age-key*.txt
+google-services.json
+GoogleService-Info.plist
 
 # typescript
 *.tsbuildinfo
