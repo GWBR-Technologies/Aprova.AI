@@ -345,12 +345,12 @@ Para não criar pastas vazias nem abstrações sem uso, o repositório contém h
 | `src/components` | `hooks`, `constants` | `features`, `core`, `app` |
 | `src/hooks`, `src/constants` | `constants` | `features`, `core`, `app`, `components` |
 | `contracts` | Apenas arquivos de `contracts` | `src`, `backend` |
-| `backend/domain` | Nada além de si | Todo o restante |
-| `backend/application` | `domain`, `contracts` | `infrastructure`, `api`, `workers`, bibliotecas de fila, IA ou banco |
-| `backend/infrastructure` | `application/ports`, `domain`, `contracts` | `api`, `workers` |
-| `backend/api` | `application`, `contracts` | `infrastructure`, `domain` |
-| `backend/workers` | `application`, `contracts` | `infrastructure`, `api` |
-| `backend/bootstrap` | Todas as camadas | — |
+| `backend/src/domain` | Nada além de si | Todo o restante |
+| `backend/src/application` | `domain`, `contracts` | `infrastructure`, `api`, `workers`, bibliotecas de fila, IA ou banco |
+| `backend/src/infrastructure` | `application/ports`, `domain`, `contracts` | `api`, `workers` |
+| `backend/src/api` | `application`, `contracts` | `infrastructure`, `domain` |
+| `backend/src/workers` | `application`, `contracts` | `infrastructure`, `api` |
+| `backend/src/bootstrap` | Todas as camadas | — |
 
 Contextos do app se comunicam por eventos e contratos, nunca importando uns aos outros. Handlers de consulta só leem o read store; handlers de comando só gravam no write store e no outbox.
 
