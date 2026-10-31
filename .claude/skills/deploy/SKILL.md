@@ -16,10 +16,9 @@ This repository has only local development commands configured. This skill verif
 
 Run only checks that exist in `package.json` and are relevant to the change:
 
-1. `npm run lint`
-2. `npm run web`, `npm run ios`, or `npm run android` when the affected platform and a local target are available
+1. `npm run web`, `npm run ios`, or `npm run android` when the affected platform and a local target are available
 
-There are no configured type-check, test, end-to-end, or production-build scripts. Do not invent those scripts.
+There are no configured lint, type-check, test, end-to-end, or production-build scripts. Do not invent those scripts. A manual type check with `npx tsc --noEmit` may be run and must be reported as manual.
 
 ## Output Contract
 

@@ -1,25 +1,35 @@
 ---
 paths:
   - "src/**/*.{ts,tsx}"
+  - "contracts/**/*.ts"
+  - "backend/**/*.ts"
 ---
 
-# Data and Device Boundary Rules
+# Data, Contract, and Messaging Boundary Rules
 
 ## Current Scope
 
-The repository has no implemented data service, device protocol, authentication flow, or server route.
+The architecture (EDA + CQRS, BullMQ + Redis, AI Workers) is defined in `docs/ARQUITETURA.md`, but the repository has no implemented data service, contract, queue, Worker, authentication flow, or server route.
 
-Do not introduce a network service, device integration, telemetry, account flow, or persistence layer without an explicit request and a defined local contract. Keep sensor and measurement details separate from rendering code once those contracts exist.
+Do not introduce a network service, queue, persistence layer, account flow, telemetry, or AI integration without an explicit request and an approved contract in `contracts/`. Follow the layer and import rules in `docs/ARQUITETURA.md` (§10).
 
-## Input and Measurement Data
+## Commands, Queries, and Events
 
-- Validate user-entered values and values received at an application boundary before they affect UI state or calculations.
-- Model units, timestamps, ranges, source, and validity explicitly when a measurement feature is introduced.
-- Do not infer clinical meaning, safety thresholds, calibration behavior, or sensor capabilities from the app name.
-- Keep displayed values distinct from editable drafts and loading or error states.
+- A command expresses an intent, carries `commandId` (the idempotency key) and `issuedAt`, and is answered with `202 Accepted`. Never wait for the AI or a Worker inside a command.
+- A query only reads from read models, returns `asOf`, and never changes state.
+- An event is an immutable fact with the envelope defined in the architecture document; every consumer is idempotent by `eventId`.
+- Do not create a command, event, or queue that is not listed in the architecture document; add it there first.
+- The AI is called only by Workers, behind `AiPort`; its output is validated before it affects state.
+
+## Input and Study Data
+
+- Validate user-entered values and values received at an application boundary (command, query, event, AI output) before they affect UI state or calculations.
+- Model timestamps (`occurredAt`, `asOf`), source, and validity explicitly.
+- Do not invent questions, answer keys, scores, essay-correction criteria, or pedagogical recommendations.
+- Keep displayed data distinct from editable drafts (such as essay text) and from loading, processing, or error states.
 
 ## Failures and Tests
 
-- Provide an understandable recovery action for unavailable data, invalid measurements, denied permissions, or interrupted work.
-- Do not expose implementation details, identifiers, tokens, or raw failure payloads to users.
-- Test successful, invalid, absent, and failure cases for a newly introduced boundary.
+- Provide an understandable recovery action for unavailable data, rejected commands, interrupted work, and failed processing.
+- Do not expose implementation details, identifiers, tokens, raw AI output, or raw failure payloads to users.
+- Test successful, invalid, absent, and failure cases for a newly introduced boundary (see `testing.md`; no test runner is configured yet).

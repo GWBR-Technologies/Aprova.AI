@@ -1,7 +1,6 @@
 ---
 status: local-only
-checks:
-  - npm run lint
+checks: []
 ---
 
 # Local Readiness Configuration

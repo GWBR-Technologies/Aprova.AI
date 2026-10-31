@@ -21,4 +21,4 @@ Treat `$ARGUMENTS` as the issue scope.
 
 - Do not add dependencies, migrations, integrations, or unrelated refactors without approval.
 - Do not create a pull request, commit, or push without explicit approval.
-- Stop and ask for direction when the issue requires a product, device, measurement, security, or data-model decision not already established.
+- Stop and ask for direction when the issue requires a product, study-data, AI-contract, security, or data-model decision not already established.

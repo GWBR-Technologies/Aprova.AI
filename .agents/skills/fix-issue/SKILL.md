@@ -13,4 +13,4 @@ Use este skill para uma descrição de problema fornecida pelo usuário.
 4. Faça apenas a menor correção necessária.
 5. Execute a validação local disponível e relate limitações.
 
-Não adicione dependências, dados persistidos, conexões de dispositivo, comunicação de rede ou refatorações não relacionadas sem aprovação. Pare e peça direção quando a correção exigir uma decisão de produto, medição, segurança ou modelo de dados que não esteja definida.
+Não adicione dependências, dados persistidos, filas, integrações com serviços externos ou com a IA, comunicação de rede ou refatorações não relacionadas sem aprovação. Pare e peça direção quando a correção exigir uma decisão de produto, dados de estudo, contrato da IA, segurança ou modelo de dados que não esteja definida.

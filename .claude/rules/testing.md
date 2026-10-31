@@ -22,6 +22,6 @@ When a test framework is explicitly introduced, add focused coverage for observa
 
 ## Local Validation
 
-Run the narrowest available check first. The repository currently defines `npm run lint`; use `npm run web`, `npm run ios`, or `npm run android` only when relevant to the changed platform and a local target is available.
+Run the narrowest available check first. The repository defines no lint, type-check, or test script; type checking can be run manually with `npx tsc --noEmit` and must be reported as a manual check. Use `npm run web`, `npm run ios`, or `npm run android` only when relevant to the changed platform and a local target is available.
 
 If a command is unavailable, fails because of unrelated existing work, or cannot run locally, report that fact clearly and state what remains unverified.

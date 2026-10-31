@@ -1,59 +1,50 @@
 ---
-platforms: [ios, android, web]
+platforms: [ios, android]
 orientation: portrait
-router: expo-router
+router: none
 ---
 
-# medidorPressao Design Context
+# Aprova.AI Design Context
 
 ## Repository Status
 
-This is an Expo 57 application written in TypeScript and React Native, with Expo Router. It targets iOS, Android, and a static web build; `app.json` sets the preferred orientation to portrait.
+This is an Expo 57 application written in TypeScript and React Native, for studying for the Enem, the Fuvest, and other Brazilian university entrance exams, with AI support and correction (GPT 6.1 - Terra). It targets iOS and Android; `app.json` sets the preferred orientation to portrait and the interface style to light. A `web` script exists, but the web dependencies are not declared.
 
-The repository name and history describe a digital pressure and compression sensor project. The application is still at its starter stage: `src/app/index.tsx` contains an empty home screen, and no measurement model, supported sensor, unit, range, user group, storage behavior, or clinical requirement has been implemented.
+The application is still at its starter stage: `src/app/App.tsx` renders an empty container, and no screen, navigation, content, visual identity, or data contract has been defined. Expo Router is not installed.
 
-Do not turn this limited context into a product specification. Ask for a requirement before adding any measurement flow, reading, health claim, threshold, alert, chart, history, device connection, or account behavior.
+Do not turn this limited context into a product specification. Ask for a requirement before adding any screen, question, score, performance chart, essay-correction result, study recommendation, or account behavior.
 
-## Current Application Structure
+## Application Structure
 
-| Concern | Current location |
+The structure follows `docs/ARQUITETURA.md` (§10). Folders appear with their first real use.
+
+| Concern | Location |
 | --- | --- |
-| File-based routes and application layout | `src/app/` |
-| Shared UI | `src/components/` |
-| Platform-specific UI | `*.web.tsx` files beside their native counterparts |
-| Theme tokens | `src/constants/theme.ts` |
+| Entry point | `index.ts` (repository root) |
+| App composition (providers, navigation) | `src/app/` |
+| Business contexts (`questions`, `routine`, `mock-exams`, `essay`, `performance`) | `src/features/<context>/` with `commands/`, `queries/`, `events/`, `ui/` |
+| Client infrastructure (HTTP, outbox, storage, events) | `src/core/` |
+| Shared UI | `src/components/`, with `*.web.tsx` beside native counterparts |
 | Theme hooks | `src/hooks/` |
-| Browser font variables | `src/global.css` |
+| Theme tokens | `src/constants/theme.ts` |
 
-The existing navigation and themed components are starter patterns. Reuse them when they fit the request, but do not treat their placeholder labels, assets, or routes as product requirements.
+## Visual Tokens
 
-## Existing Visual Tokens
-
-Use the tokens in `src/constants/theme.ts` as the source of truth until a product design is approved.
-
-| Token group | Available values |
-| --- | --- |
-| Light colors | `text`, `background`, `backgroundElement`, `backgroundSelected`, `textSecondary` |
-| Dark colors | matching values for the same keys |
-| Spacing | `2, 4, 8, 16, 24, 32, 64` |
-| Content width | `MaxContentWidth = 800` |
-| Fonts | platform-selected `sans`, `serif`, `rounded`, and `mono` families |
-
-Keep light and dark themes working. Do not introduce new fixed colors or spacing scales when an existing token fits; propose an extension only when the feature requires a semantic value that does not exist.
+No design tokens exist yet. The visual identity (palette, typography, radii, spacing, icons) is not approved (`docs/DESIGN.md`); ask for direction instead of inventing it. When tokens are approved, define them in `src/constants/theme.ts` and reuse them everywhere.
 
 ## Interaction and Accessibility Baseline
 
-- Design mobile-first for portrait use, then verify that web layouts retain a clear reading order and usable width.
+- Design mobile-first for portrait use, then verify that web layouts, when web is enabled, retain a clear reading order and usable width.
 - Use `SafeAreaView` where a screen touches device edges.
-- Keep primary actions reachable and make pressed, disabled, loading, empty, error, and unavailable states understandable in text as well as color.
+- Keep primary actions reachable and make pressed, disabled, loading, empty, error, offline, received, and processing states understandable in text as well as color.
 - Provide accessible labels for icon-only controls and preserve visible focus on web.
 - Respect reduced-motion preferences where the platform supports them; animation must communicate a state change, not merely decorate the screen.
-- If a future screen presents readings, show only values supplied by the approved contract and distinguish unavailable, stale, invalid, and loading data.
+- Command states (`queued-locally`, `sending`, `received`, `processing`, `completed`, `failed`) and the `asOf` of projected data follow `docs/ARQUITETURA.md` (§9). Show only values supplied by an approved contract and distinguish unavailable, stale, processing, and failed data.
 
 ## Visual Acceptance Checklist
 
-- Does the change reuse the existing Expo and React Native structure?
-- Does it work in both light and dark themes when it touches shared UI?
+- Does the change respect the layers and import rules of `docs/ARQUITETURA.md`?
 - Is the intended action clear without relying on color or an icon alone?
-- Does it avoid unsupported claims or invented measurement information?
-- Does it remain usable in a narrow portrait viewport and on the web override when applicable?
+- Does it avoid invented study content, scores, or correction results?
+- Are asynchronous states (received, processing, completed, failed) honest and understandable?
+- Does it remain usable in a narrow portrait viewport?

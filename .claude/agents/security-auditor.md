@@ -20,10 +20,12 @@ Audit only the delegated scope and directly related security boundaries.
 - ownership and tenant isolation;
 - secret exposure and insecure configuration;
 - error leakage;
-- unsafe network or device-boundary requests;
+- unsafe network or AI-boundary requests;
 - dependency and supply-chain changes;
 - API access-control regressions;
-- sensitive data handling.
+- sensitive data handling;
+- message and queue handling: idempotency, poison messages, and secrets available to Workers;
+- AI output reaching state or the UI without validation.
 
 ## Rules
 

@@ -6,7 +6,7 @@ Review `$ARGUMENTS`. If no scope is provided, review the current working-tree di
 
 1. Identify the reviewed scope and inspect the relevant diff, callers, contracts, and tests.
 2. Use the `code-reviewer` subagent when the scope is large enough to benefit from isolated analysis.
-3. Check correctness, regressions, Expo Router and platform behavior, accessibility, security implications, and test coverage.
+3. Check correctness, regressions, layer import rules (`docs/ARQUITETURA.md`, §10), idempotency and failure handling in commands, events, and Workers, platform behavior, accessibility, security implications, and test coverage.
 4. Do not edit files, create comments, create issues, commit, or push.
 5. Do not report subjective style preferences as defects.
 
