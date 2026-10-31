@@ -1,0 +1,15 @@
+[Unit]
+Description=Aprova.AI: busca a imagem de produção e atualiza os contêineres
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=deploy
+Group=deploy
+SupplementaryGroups=docker
+WorkingDirectory=/opt/aprova/repo/infra
+ExecStart=/opt/aprova/repo/infra/scripts/deploy.sh
+TimeoutStartSec=600
+NoNewPrivileges=true
