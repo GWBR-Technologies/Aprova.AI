@@ -48,18 +48,30 @@
 
 ## Arquitetura
 
-O repositório contém uma única aplicação Expo. A interface usa componentes
-React Native e `StyleSheet`; o registro do componente principal é feito com
-`registerRootComponent`, do Expo.
+O Aprova.AI adota **Event-Driven Architecture + CQRS**. O que o aluno faz na
+tela (comandos) é separado do que o sistema processa em segundo plano
+(consultas e IA): o app responde de imediato (`202 Accepted`, por exemplo
+“Redação recebida com sucesso!”) e Workers consomem filas **BullMQ + Redis**
+para chamar a IA (GPT 6.1 - Terra) sem risco de timeout na API. A arquitetura
+completa, as decisões, os fluxos e as regras de organização de diretórios estão
+em [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md), também disponível em PDF
+([`docs/ARQUITETURA.pdf`](docs/ARQUITETURA.pdf)).
+
+Hoje o repositório contém apenas a aplicação Expo e a estrutura de camadas;
+BullMQ, Redis, backend e contratos ainda não estão implementados nem instalados.
 
 | Arquivo ou diretório | Responsabilidade |
 | --- | --- |
+| `index.ts` | Registro do componente principal no Expo (`main` do `package.json`) |
 | `src/app/App.tsx` | Componente principal e estilos da tela inicial |
-| `src/app/index.ts` | Registro do componente principal no Expo |
+| `src/features/` | Contextos de negócio do app, cada um com comandos, consultas, eventos e UI |
+| `src/core/` | Infraestrutura do cliente: HTTP, outbox local, persistência e eventos |
+| `contracts/` | Contrato entre app e backend: comandos, consultas e eventos |
+| `backend/src/` | API de comandos e consultas e Workers (domínio, aplicação, infraestrutura) |
 | `assets/` | Ícones e imagens do aplicativo |
 | `app.json` | Nome, orientação e configuração das plataformas |
 | `tsconfig.json` | Configuração do TypeScript, estendendo a base do Expo |
-| `docs/` | Documentação de apoio e instruções de trabalho |
+| `docs/` | Arquitetura, guias de trabalho e design |
 | `.claude/` e `.agents/` | Regras e workflows para assistência ao desenvolvimento |
 
 O aplicativo está configurado com orientação em retrato e interface clara.
@@ -112,11 +124,8 @@ Instale as dependências respeitando o `package-lock.json` versionado:
 npm ci
 ```
 
-**Há uma pendência no ponto de entrada:** `package.json` aponta para
-`index.ts` na raiz, mas o arquivo existente está em `src/app/index.ts`.
-Essa configuração precisa ser alinhada antes de carregar o aplicativo.
-
-Após resolver essa pendência, inicie o servidor de desenvolvimento:
+O ponto de entrada é o `index.ts` da raiz, declarado em `main` no
+`package.json`. Inicie o servidor de desenvolvimento:
 
 ```bash
 npm run start
@@ -161,11 +170,16 @@ Aprova.AI/
 │   ├── rules/           # Convenções de código, dados e testes
 │   └── skills/          # Fluxos de interface e prontidão local
 ├── assets/              # Ícones e imagens
-├── docs/                # Documentação de apoio
+├── backend/
+│   └── src/             # domain, application, infrastructure, api, workers, bootstrap
+├── contracts/           # Contrato app <-> backend (comandos, consultas, eventos)
+├── docs/                # Arquitetura (ARQUITETURA.md e .pdf), guias e design
 ├── src/
-│   └── app/
-│       ├── App.tsx      # Tela inicial
-│       └── index.ts     # Registro do componente principal
+│   ├── app/
+│   │   └── App.tsx      # Tela inicial (camada de composição)
+│   ├── core/            # Infraestrutura do cliente
+│   └── features/        # Contextos de negócio do app
+├── index.ts             # Registro do componente principal no Expo
 ├── app.json             # Configuração do Expo
 ├── package.json         # Dependências e scripts
 ├── package-lock.json    # Versões resolvidas das dependências
@@ -182,36 +196,41 @@ Aprova.AI/
 - Não versione dependências instaladas, arquivos gerados ou credenciais.
 - Ao alterar comportamento, valide na plataforma afetada e registre o
   resultado e as limitações da verificação.
-- Consulte as instruções de trabalho em `docs/AGENTS.md`, conferindo suas
-  referências com o código e a configuração atuais.
+- Consulte as instruções de trabalho em `docs/AGENTS.md` e a organização de
+  camadas em `docs/ARQUITETURA.md`, conferindo-as com o código e a configuração
+  atuais.
+- Ao mudar estrutura ou decisões, atualize `docs/ARQUITETURA.md`, este arquivo
+  e os guias, e regenere o PDF (`docs/ARQUITETURA.md`, seção 13).
+- Siga o padrão de commits do histórico, `(tipo): Frase no passado`.
 
 ## Estado atual e limites conhecidos
 
 - **Interface inicial:** `App.tsx` renderiza apenas um contêiner branco.
   Ainda não há funcionalidades de produto implementadas.
-- **Ponto de entrada:** o campo `main` de `package.json` referencia um
-  arquivo ausente na raiz; o registro do aplicativo está em `src/app/index.ts`.
 - **Suporte web:** existe o script `web`, mas `react-dom` e
   `react-native-web` ainda não estão declarados nas dependências.
 - **Navegação:** Expo Router não está instalado na base atual.
 - **Validação:** não há scripts de lint, testes ou build de produção
   configurados, nem uma suíte de testes versionada.
-- **Documentação herdada:** parte dos arquivos de `docs/` e `.claude/`
-  descreve `medidorPressao` e Multscan Monitor, além de componentes e
-  comandos que não existem nesta aplicação. Esse material precisa ser
-  revisado para refletir o Aprova.AI.
+- **Arquitetura:** a organização em camadas existe, mas não há backend,
+  filas, contratos, cliente de rede nem persistência implementados. As
+  decisões em aberto estão em `docs/ARQUITETURA.md` (seção 14).
+- **Design:** a identidade visual do Aprova.AI ainda não foi definida
+  (`docs/DESIGN.md`).
 
 ## Documentação complementar
 
+- [Arquitetura EDA + CQRS](docs/ARQUITETURA.md) ([PDF](docs/ARQUITETURA.pdf))
 - [Instruções compartilhadas do projeto](docs/AGENTS.md)
 - [Guia operacional para Claude](docs/Claude.md)
 - [Guia do Codex](docs/Codex.md)
 - [Preferências locais de desenvolvimento](docs/CLAUDE.local.md)
+- [Design](docs/DESIGN.md)
 - [Workflows para Codex](.agents/skills/)
 - [Regras para Claude](.claude/rules/)
 
-As referências acima devem ser lidas considerando as divergências
-registradas em [Estado atual e limites conhecidos](#estado-atual-e-limites-conhecidos).
+As referências acima descrevem o Aprova.AI; as pendências conhecidas estão em
+[Estado atual e limites conhecidos](#estado-atual-e-limites-conhecidos).
 
 ## Licença
 
