@@ -8,6 +8,8 @@ export type OutboxRow = {
   commandId: string;
   userId: string;
   route: string;
+  /** Identificador do recurso criado pelo comando (por exemplo `essayId`); não é dado pessoal. */
+  resourceId: string | null;
   /** JSON do envelope; nulo depois de `received` (o servidor já tem o conteúdo). */
   body: string | null;
   state: OutboxState;
@@ -33,6 +35,7 @@ CREATE TABLE IF NOT EXISTS outbox (
   command_id      TEXT PRIMARY KEY,
   user_id         TEXT NOT NULL,
   route           TEXT NOT NULL,
+  resource_id     TEXT,
   body            TEXT,
   state           TEXT NOT NULL,
   attempts        INTEGER NOT NULL DEFAULT 0,
@@ -59,6 +62,7 @@ type RawRow = {
   command_id: string;
   user_id: string;
   route: string;
+  resource_id: string | null;
   body: string | null;
   state: OutboxState;
   attempts: number;
@@ -73,6 +77,7 @@ function toRow(raw: RawRow): OutboxRow {
     commandId: raw.command_id,
     userId: raw.user_id,
     route: raw.route,
+    resourceId: raw.resource_id,
     body: raw.body,
     state: raw.state,
     attempts: raw.attempts,
@@ -229,13 +234,27 @@ export function createOutbox(config: OutboxConfig) {
   return {
     flush,
 
-    async enqueue(input: { userId: string; route: string; command: CommandEnvelope<unknown> }) {
+    async enqueue(input: {
+      userId: string;
+      route: string;
+      resourceId?: string;
+      command: CommandEnvelope<unknown>;
+    }) {
       await init();
       const at = now();
       await db.runAsync(
-        `INSERT INTO outbox (command_id, user_id, route, body, state, attempts, next_attempt_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, 'queued-locally', 0, ?, ?, ?)`,
-        [input.command.commandId, input.userId, input.route, JSON.stringify(input.command), at, at, at],
+        `INSERT INTO outbox (command_id, user_id, route, resource_id, body, state, attempts, next_attempt_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, 'queued-locally', 0, ?, ?, ?)`,
+        [
+          input.command.commandId,
+          input.userId,
+          input.route,
+          input.resourceId ?? null,
+          JSON.stringify(input.command),
+          at,
+          at,
+          at,
+        ],
       );
       notify(input.command.commandId, 'queued-locally');
       // O envio roda em segundo plano; a tela já recebe o estado `queued-locally`.
@@ -255,6 +274,15 @@ export function createOutbox(config: OutboxConfig) {
     async get(commandId: string): Promise<OutboxRow | null> {
       await init();
       const raw = await db.getFirstAsync<RawRow>('SELECT * FROM outbox WHERE command_id = ?', [commandId]);
+      return raw ? toRow(raw) : null;
+    },
+
+    async getByResourceId(userId: string, resourceId: string): Promise<OutboxRow | null> {
+      await init();
+      const raw = await db.getFirstAsync<RawRow>(
+        'SELECT * FROM outbox WHERE user_id = ? AND resource_id = ? ORDER BY created_at DESC',
+        [userId, resourceId],
+      );
       return raw ? toRow(raw) : null;
     },
 

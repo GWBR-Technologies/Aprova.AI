@@ -102,7 +102,7 @@ describe('createOutbox', () => {
     db.raw.exec(OUTBOX_SCHEMA);
     db.raw
       .prepare(
-        "INSERT INTO outbox VALUES ('c1', 'u1', 'submit-essay', ?, 'sending', 0, 0, NULL, 1, 1)",
+        "INSERT INTO outbox VALUES ('c1', 'u1', 'submit-essay', NULL, ?, 'sending', 0, 0, NULL, 1, 1)",
       )
       .run(JSON.stringify(envelope('c1')));
     const send = jest.fn(async (_route: string, command: CommandEnvelope<unknown>) => accepted(command.commandId));
@@ -203,12 +203,22 @@ describe('createOutbox', () => {
     await outbox.flush('u1');
     send.mockClear();
     db.raw
-      .prepare("INSERT INTO outbox VALUES ('c2', 'u2', 'r', ?, 'queued-locally', 0, 0, NULL, 1, 1)")
+      .prepare("INSERT INTO outbox VALUES ('c2', 'u2', 'r', NULL, ?, 'queued-locally', 0, 0, NULL, 1, 1)")
       .run(JSON.stringify(envelope('c2')));
 
     await outbox.flush('u1');
     expect(send).not.toHaveBeenCalled();
     expect(stateOf(db, 'c2')?.state).toBe('queued-locally');
+  });
+
+  it('guarda o identificador do recurso e o mantém depois que o corpo é apagado', async () => {
+    const { outbox } = setup();
+    await outbox.enqueue({ userId: 'u1', route: 'submit-essay', resourceId: 'essay-1', command: envelope('c1') });
+    await outbox.flush('u1');
+
+    const row = await outbox.getByResourceId('u1', 'essay-1');
+    expect(row).toMatchObject({ commandId: 'c1', resourceId: 'essay-1', state: 'received', body: null });
+    expect(await outbox.getByResourceId('u2', 'essay-1')).toBeNull();
   });
 
   it('executa uma rodada por vez', async () => {
@@ -244,7 +254,7 @@ describe('createOutbox', () => {
     expect(stateOf(db, 'c1')).toBeUndefined();
     expect(await outbox.countPending('u1')).toBe(0);
 
-    db.raw.prepare("INSERT INTO outbox VALUES ('c9', 'u1', 'r', NULL, 'received', 0, 0, NULL, 1, ?)").run(1_000_000);
+    db.raw.prepare("INSERT INTO outbox VALUES ('c9', 'u1', 'r', NULL, NULL, 'received', 0, 0, NULL, 1, ?)").run(1_000_000);
     advance(8 * 24 * 60 * 60_000);
     await outbox.purgeReceived();
     expect(stateOf(db, 'c9')).toBeUndefined();

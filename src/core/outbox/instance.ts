@@ -29,6 +29,7 @@ export const enqueueCommand = outbox.enqueue;
 export const flushOutbox = outbox.flush;
 export const observeOutbox = outbox.observe;
 export const getOutboxRow = outbox.get;
+export const getOutboxRowByResource = outbox.getByResourceId;
 export const listOutbox = outbox.list;
 export const countPendingCommands = outbox.countPending;
 export const discardCommand = outbox.discard;
