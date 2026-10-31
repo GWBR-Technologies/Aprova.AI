@@ -1,0 +1,11 @@
+# Arquivos executados em Linux (VM, contêineres e GitHub Actions) mantêm LF mesmo em checkouts no Windows.
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.service text eol=lf
+*.timer text eol=lf
+*.alloy text eol=lf
+*.sql text eol=lf
+Caddyfile text eol=lf
+Dockerfile text eol=lf
+.dockerignore text eol=lf
