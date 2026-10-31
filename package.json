@@ -25,7 +25,7 @@
     "react-native-screens": "~4.26.0"
   },
   "devDependencies": {
-    "@react-native/jest-preset": "^0.88.1",
+    "@react-native/jest-preset": "0.86.3",
     "@testing-library/react-native": "^14.1.0",
     "@types/react": "~19.2.2",
     "eslint": "^9.0.0",
