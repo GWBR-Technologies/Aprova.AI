@@ -1137,17 +1137,27 @@ Resposta (`GetEntitlements`): `plan`, `essayQuota` (`limit`, `used` do período 
 
 ### 15.2 Métricas
 
-Servidas em porta interna por `prom-client` mais `queue.exportPrometheusMetrics()`:
+Servidas por `prom-client` em `GET /metrics`, na porta interna `METRICS_PORT` (padrão `9464`, o mesmo valor do guia de DevOps), em cada processo. Todas as séries levam o rótulo `service` (`api`, `worker` ou `relay`), além das métricas padrão do Node (`process_*`, `nodejs_*`). Os nomes e rótulos abaixo são o contrato com os alertas do DevOps.
 
-| Métrica | Uso |
-| --- | --- |
-| `http_request_duration_seconds` (por rota e status) | Latência e erros da API |
-| `outbox_pending` e `outbox_oldest_pending_age_seconds` | Relay parado ou Redis fora |
-| Profundidade, idade do job mais antigo, latência e falhas por fila | Atraso de Workers e projeções |
-| `dead_letter_total` | Crescimento da `dead-letter` (alerta principal) |
-| `ai_requests_total{outcome}` e `ai_tokens_total{kind}` | Uso e falhas da IA |
-| `ai_cost_usd_total` | Custo acumulado |
-| `essay_quota_rejections_total{reason}` | Rejeições por Premium e por cota |
+| Métrica | Tipo | Rótulos e valores | Processo | Uso |
+| --- | --- | --- | --- | --- |
+| `http_request_duration_seconds` | Histograma | `method`; `route` (molde da rota, por exemplo `/v1/commands/submit-essay` ou `/v1/essays/:essayId`); `status` (código HTTP, por exemplo `202`) | api | Latência e erros da API |
+| `essay_quota_rejections_total` | Contador | `reason`: `premium_required`, `quota_exceeded` | api | Rejeições por Premium e por cota |
+| `outbox_pending` | Gauge | — | relay | Linhas do outbox não publicadas |
+| `outbox_oldest_pending_age_seconds` | Gauge | — | relay | Relay parado ou Redis fora |
+| `dead_letter_total` | Contador | — | relay | Mensagens publicadas na `dead-letter` (alerta principal) |
+| `queue_jobs` | Gauge | `queue` (`essay-correction`, `mock-exam-processing`, `projections`, `dead-letter`); `state` (`waiting`, `active`, `delayed`, `failed`) | worker | Profundidade das filas |
+| `queue_oldest_waiting_age_seconds` | Gauge | `queue` | worker | Atraso das filas (idade do job mais antigo à espera) |
+| `ai_requests_total` | Contador | `outcome`: `success`, `rejected` (conteúdo ou requisição recusados), `failed` (tempo limite, `429`, `5xx`, configuração) | worker | Uso e falhas da IA |
+| `ai_tokens_total` | Contador | `kind`: `input`, `cached_input`, `output` | worker | Tokens consumidos |
+| `ai_cost_usd_total` | Contador | — | worker | Custo acumulado desde o início do processo |
+| `ai_cost_month_to_date_usd` | Gauge | — | worker | Custo do mês em UTC, lido de `ai_usage` (sobrevive a reinícios) |
+| `ai_monthly_budget_usd` | Gauge | — | worker | Valor de `AI_MONTHLY_BUDGET_USD`; só existe quando a variável está definida |
+
+O alerta de 80% do orçamento é `ai_cost_month_to_date_usd / ai_monthly_budget_usd > 0.8`. O mês do orçamento é o mês em UTC, como a cobrança do provedor, e não a janela da cota do aluno. A métrica só expõe o valor: o freio que pausa a fila (§10.5) continua dependendo de aprovação.
+
+`queue_*` é lida do Redis a cada coleta, em vez de usar o `exportPrometheusMetrics` do BullMQ, porque ele repete `HELP` e `TYPE` a cada fila e invalida o texto quando várias filas são expostas juntas.
+
 
 ### 15.3 Erros
 
@@ -1198,14 +1208,15 @@ Somente nomes: valores nunca entram no repositório, nos logs nem nesta document
 | `JWT_SECRET`, `JWT_ISSUER`, `JWT_AUDIENCE` | Tokens de acesso | Segredo com pelo menos 32 bytes |
 | `GOOGLE_CLIENT_IDS`, `APPLE_CLIENT_ID` | Validação do `idToken` | Valores públicos |
 | `OPENAI_API_KEY` | IA | **Segredo**; só no servidor e apenas no ambiente do Worker |
-| `AI_MODEL`, `AI_TIMEOUT_MS` | IA | Modelo confirmado na documentação da API |
+| `AI_MODEL`, `AI_TIMEOUT_MS` | IA | Modelo confirmado na documentação da API; `AI_TIMEOUT_MS` deve ficar abaixo do `stop_grace_period` do Worker (150 s), com folga para gravar o resultado (proposta: até 120000) |
 | `AI_PRICE_INPUT_PER_M`, `AI_PRICE_CACHED_INPUT_PER_M`, `AI_PRICE_OUTPUT_PER_M` | Cálculo de custo | 1,00 / 0,05 / 5,00 em 30/10/2026 |
-| `AI_MONTHLY_BUDGET_USD` | Freio orçamentário | Opcional |
+| `AI_MONTHLY_BUDGET_USD` | Orçamento mensal da IA | Opcional; hoje só alimenta `ai_monthly_budget_usd` (o freio depende de aprovação) |
 | `ESSAY_MONTHLY_LIMIT` | Cota por mês | 4 (D9) |
 | `ESSAY_MAX_CHARS` | Tamanho do texto | **Definido pelo produto; sem padrão** |
 | `ESSAY_WORKER_CONCURRENCY`, `ESSAY_RATE_LIMIT_PER_MIN` | Worker | Propostas iniciais a calibrar |
 | `AI_PROMPT_VERSION` | Versão do prompt de correção usada pelo Worker | Precisa estar registrada em `infrastructure/ai/prompts`; sem ela a fila `essay-correction` não é consumida |
-| `METRICS_PORT` | Métricas | Porta interna |
+| `METRICS_PORT` | Métricas | Porta interna; padrão `9464` |
+| `GIT_SHA` | Versão em execução | Devolvida no corpo do `/readyz` (`version`); definida pela entrega |
 | `SENTRY_DSN` | Erros | Público por natureza; entra com o Sentry no B6 |
 | `TEST_DATABASE_URL`, `TEST_REDIS_URL` | Testes de integração | Só instâncias descartáveis: os testes recriam os esquemas e esvaziam o Redis |
 
@@ -1280,7 +1291,8 @@ Atualizado em 02/11/2026. Aprovados pelo responsável pelo produto nesta etapa: 
 - **Limite de taxa** em memória por processo: 300 por minuto global e 20 por minuto em `/v1/auth/*`, valores a calibrar no B7. Usar o Redis faria a API depender dele.
 - **`trustProxy`** confia apenas em endereços privados (`loopback,uniquelocal`), porque a API só é alcançável pela rede interna do Compose.
 - **`bodyLimit`** é `ESSAY_MAX_CHARS × 4 + 16 KiB` (pior caso de UTF-8 mais o envelope).
-- **Papéis de banco.** A migração `0001` cria os papéis de grupo `aprova_api` (API e relay) e `aprova_worker`, sem login. Os usuários de login e as senhas ficam com o DevOps. Como a API serve comandos e consultas no mesmo processo, não há papel separado para consultas.
+- **Imagem de produção.** O backend foi validado com o `Dockerfile` do DevOps (`npm ci --omit=dev --ignore-scripts`): as dependências de produção funcionam sem scripts de instalação (o `msgpackr-extract`, opcional do BullMQ, cai na implementação em JavaScript). Na imagem, `migrate`, a API, o Worker e o relay subiram contra Postgres 18 e Redis 8.2; `/readyz` respondeu `200` com a versão e as métricas apareceram na porta `9464`.
+- **Papéis de banco.** A migração `0001` cria os papéis de grupo `aprova_api` (API e relay) e `aprova_worker`, sem login. Os usuários de login e as senhas ficam com o DevOps: cada login recebe o papel com `GRANT aprova_api TO <login>` (ou `GRANT aprova_worker`). As migrações rodam sempre com o mesmo papel dono dos esquemas (`aprova_admin` no Compose), porque os `ALTER DEFAULT PRIVILEGES` da `0001` valem para os objetos criados por esse papel. Como a API serve comandos e consultas no mesmo processo, não há papel separado para consultas.
 - **Republicação de job falho.** Se a última tentativa falhar sem que a falha possa ser gravada (banco fora do ar) ou se o BullMQ desistir de um job travado, a redação fica em `processing`, e o job falho continua retido (`removeOnFail`) com o mesmo `jobId`. Por isso, ao publicar, o adaptador procura o job: se ele estiver falho, volta para a fila com as tentativas zeradas (`job.retry`), em vez de a publicação ser ignorada. Assim o reconciliador do §8.4 recupera o caso.
 - **Saídas inválidas da IA.** O limite (proposta: 2) conta as respostas da IA para a redação registradas em `ai_usage`, e não todas as tentativas. Tempos limite e erros `5xx` não consomem esse limite.
 - **Erros de configuração da OpenAI** (`401`, `403`, `404`: chave, permissão ou modelo) são tratados como transitórios. Eles não marcam a redação como recusada pelo conteúdo; se persistirem até a última tentativa, a redação termina como `PROCESSING_FAILED`, com a cota devolvida.
