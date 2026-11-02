@@ -10,7 +10,7 @@ router: none
 
 This is an Expo 57 application written in TypeScript and React Native, for studying for the Enem, the Fuvest, and other Brazilian university entrance exams, with AI support and correction (GPT 6.1 - Terra). It targets iOS and Android; `app.json` sets the preferred orientation to portrait and the interface style to light. A `web` script exists, but the web dependencies are not declared.
 
-The application is still at its starter stage: `src/app/App.tsx` renders an empty container, and no screen, navigation, content, visual identity, or data contract has been defined. Expo Router is not installed.
+The application has Expo Router navigation, the visual identity in `docs/DESIGN.md` (tokens in `src/constants/theme.ts`), and the login, essay, and account flows. Screens for questions, routine, mock exams, and performance do not exist because their data contracts are not defined.
 
 Do not turn this limited context into a product specification. Ask for a requirement before adding any screen, question, score, performance chart, essay-correction result, study recommendation, or account behavior.
 
@@ -20,7 +20,7 @@ The structure follows `docs/ARQUITETURA.md` (§10). Folders appear with their fi
 
 | Concern | Location |
 | --- | --- |
-| Entry point | `index.ts` (repository root) |
+| Entry point | `expo-router/entry` (`main` in `package.json`) |
 | App composition (providers, navigation) | `src/app/` |
 | Business contexts (`questions`, `routine`, `mock-exams`, `essay`, `performance`) | `src/features/<context>/` with `commands/`, `queries/`, `events/`, `ui/` |
 | Client infrastructure (HTTP, outbox, storage, events) | `src/core/` |

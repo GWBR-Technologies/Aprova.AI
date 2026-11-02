@@ -9,9 +9,9 @@ paths:
 
 ## Current Scope
 
-The architecture (EDA + CQRS, BullMQ + Redis, AI Workers) is defined in `docs/ARQUITETURA.md`, but the repository has no implemented data service, contract, queue, Worker, authentication flow, or server route.
+The architecture (EDA + CQRS, BullMQ + Redis, AI Workers) is defined in `docs/ARQUITETURA.md`. The backend in `backend/` implements milestones B0 to B4 (status in §21 of `docs/IMPLEMENTACAO-BACKEND.md`), and the shared contracts live in `contracts/`. The app in `src/` implements the HTTP client, session, local outbox, and the essay commands and queries against those contracts.
 
-Do not introduce a network service, queue, persistence layer, account flow, telemetry, or AI integration without an explicit request and an approved contract in `contracts/`. Follow the layer and import rules in `docs/ARQUITETURA.md` (§10).
+Do not introduce a new network service, queue, persistence layer, account flow, telemetry, or AI integration, or a command, query, or event outside the catalog, without an explicit request and an approved contract in `contracts/`. Follow the layer and import rules in `docs/ARQUITETURA.md` (§10).
 
 ## Commands, Queries, and Events
 
@@ -32,4 +32,4 @@ Do not introduce a network service, queue, persistence layer, account flow, tele
 
 - Provide an understandable recovery action for unavailable data, rejected commands, interrupted work, and failed processing.
 - Do not expose implementation details, identifiers, tokens, raw AI output, or raw failure payloads to users.
-- Test successful, invalid, absent, and failure cases for a newly introduced boundary (see `testing.md`; no test runner is configured yet).
+- Test successful, invalid, absent, and failure cases for a newly introduced boundary (see `testing.md`).

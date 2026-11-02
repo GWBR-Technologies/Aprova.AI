@@ -32,7 +32,7 @@ Estas preferências complementam `docs/Claude.md` somente neste projeto.
 
 ## Verificação e Entrega
 
-- Execute a validação local proporcional à mudança. Não há comando de qualidade configurado; a verificação de tipos pode ser feita manualmente com `npx tsc --noEmit`.
+- Execute a validação local proporcional à mudança. Os comandos de qualidade são `npm run lint`, `npm run typecheck` e `npm test`.
 - Informe comandos executados, resultados, limitações e plataformas que não puderam ser verificadas.
 - Não afirme que uma alteração funciona sem evidência da validação correspondente.
 - Ao mudar estrutura ou decisões, mantenha `docs/ARQUITETURA.md`, o `README.md` e estes guias alinhados (`docs/ARQUITETURA.md`, §13).

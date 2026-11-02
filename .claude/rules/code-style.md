@@ -18,7 +18,7 @@ paths:
 
 - Keep code in the layers defined by `docs/ARQUITETURA.md` (§10): composition in `src/app/`, contexts in `src/features/`, client infrastructure in `src/core/`, shared UI in `src/components/`, hooks in `src/hooks/`, theme tokens in `src/constants/theme.ts`, shared contracts in `contracts/`, the backend in `backend/src/`, and deployment in `infra/` and `.github/workflows/` (configuration and scripts only, never secrets). Subfolders and files appear with their first real use.
 - Respect the import rules in each layer's `README.md`; a feature never imports another feature.
-- Keep the entry point in `index.ts` at the repository root. Expo Router is not installed; if it is approved, `src/app/` holds only routes (`docs/ARQUITETURA.md`, §10.4). Preserve existing `.web.tsx` platform overrides.
+- The entry point is `expo-router/entry`. `src/app/` holds only thin routes and the root layout (providers); screens live in `src/features/<context>/ui` (`docs/ARQUITETURA.md`, §10.4). Preserve existing `.web.tsx` platform overrides.
 - Use React Native primitives and `StyleSheet` for shared mobile UI. Keep browser-specific CSS in web-specific files.
 - Do not create a generic command or query bus; call handlers directly.
 - Keep data loading, mutations, and rendering responsibilities separated according to existing project patterns.
@@ -36,7 +36,7 @@ paths:
 - Reuse the tokens in `src/constants/theme.ts` and existing shared components, once they exist, before adding a new visual primitive.
 - Respect `userInterfaceStyle` in `app.json` (currently `light`); cover both modes if dark mode is introduced.
 - Do not hardcode colors, typography, spacing, or interactive states when an existing token or component variant exists.
-- The visual identity, study content, and essay-correction criteria are not defined (`docs/DESIGN.md`). Ask for direction instead of inventing them.
+- The visual identity is registered in `docs/DESIGN.md`. Study content and essay-correction criteria are not defined; ask for direction instead of inventing them.
 
 ## Types
 
