@@ -4,9 +4,9 @@
 
 `Aprova.AI` é um aplicativo para Android e iOS feito com Expo 57, React Native, React 19 e TypeScript estrito, para estudo para o Enem, a Fuvest e outros vestibulares brasileiros, com apoio e correção por IA (GPT 6.1 - Terra). A arquitetura é EDA + CQRS com BullMQ + Redis e Workers em segundo plano; a fonte de verdade é `docs/ARQUITETURA.md`.
 
-O código do app fica em `src/` (composição em `src/app/`, contextos em `src/features/`, infraestrutura do cliente em `src/core/`), os contratos compartilhados em `contracts/` e a API com os Workers em `backend/src/`. O ponto de entrada é `index.ts`, na raiz.
+O código do app fica em `src/` (composição em `src/app/`, contextos em `src/features/`, infraestrutura do cliente em `src/core/`), os contratos compartilhados em `contracts/` e a API com os Workers em `backend/src/`. O ponto de entrada é `expo-router/entry` (`main` do `package.json`).
 
-O app está no estágio inicial: a tela inicial está vazia e não há navegação, cliente de rede, persistência, autenticação nem scripts de lint, testes ou verificação de tipos. O backend em `backend/` está implementado até o marco B4 (estado no §21 de `docs/IMPLEMENTACAO-BACKEND.md`). A orientação é retrato (`app.json`).
+O app já tem navegação (Expo Router), cliente HTTP, sessão, outbox local em SQLite, redação com plano Premium e cota, aviso por push e a identidade visual (`docs/DESIGN.md`). Ainda não há telas de questões, rotina, simulados e desempenho (faltam os contratos do produto, `docs/IMPLEMENTACAO-FRONTEND.md` §17). O backend em `backend/` está implementado até o marco B4 (estado no §21 de `docs/IMPLEMENTACAO-BACKEND.md`). A orientação é retrato (`app.json`).
 
 Use `docs/AGENTS.md` como o guia compartilhado do projeto. Este arquivo adiciona os fluxos específicos disponíveis em `.claude/`.
 
@@ -48,7 +48,7 @@ Não escolha silenciosamente entre requisitos conflitantes. Explique o conflito 
 - Prefira a menor mudança completa, sem abstrações, dependências, configurações ou funcionalidades especulativas.
 - Coloque cada código na camada definida em `docs/ARQUITETURA.md` (§10) e respeite as regras de importação do `README.md` da camada. Subpastas e arquivos nascem junto do primeiro uso real.
 - Preserve os arquivos específicos de plataforma, como `*.web.tsx`, ao alterar comportamento compartilhado.
-- Reutilize tokens de `src/constants/theme.ts` e componentes compartilhados quando existirem; a identidade visual ainda não está definida (`docs/DESIGN.md`).
+- Reutilize tokens de `src/constants/theme.ts` e componentes compartilhados quando existirem; a identidade visual está em `docs/DESIGN.md`.
 - Não remova ou reformate código adjacente que não tenha sido afetado pela alteração solicitada.
 - Relate o que foi verificado e o que permaneceu sem validação.
 
@@ -70,8 +70,11 @@ Os scripts atualmente definidos são:
 | Abrir no Android | `npm run android` |
 | Abrir no iOS | `npm run ios` |
 | Iniciar a versão web | `npm run web` |
+| Lint | `npm run lint` |
+| Verificação de tipos | `npm run typecheck` |
+| Testes | `npm test` |
 
-No app (raiz), não há scripts configurados para lint, verificação de tipos, testes, testes de ponta a ponta ou build de produção. Não os presuma nem os execute como se existissem. No `backend/` existem `npm run typecheck`, `npm run lint` e `npm test` (execute dentro de `backend/`); os testes de integração só rodam com `TEST_DATABASE_URL` e `TEST_REDIS_URL` apontando para instâncias descartáveis. A verificação de tipos pode ser feita manualmente com `npx tsc --noEmit`, relatada como verificação manual.
+No app (raiz) não há scripts de testes de ponta a ponta nem de build de produção; não os presuma. Login nativo, SQLite, push e câmera exigem build de desenvolvimento, não o Expo Go. No `backend/` existem `npm run typecheck`, `npm run lint` e `npm test` (execute dentro de `backend/`); os testes de integração só rodam com `TEST_DATABASE_URL` e `TEST_REDIS_URL` apontando para instâncias descartáveis.
 
 Para uma mudança de interface, valide na plataforma afetada quando houver um destino local disponível. Para mudanças em componentes compartilhados, considere as implementações nativa e web.
 

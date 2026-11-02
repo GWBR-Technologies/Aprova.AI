@@ -8,7 +8,7 @@ Este é o único `AGENTS.md` do repositório e contém as instruções compartil
 
 A arquitetura é Event-Driven Architecture + CQRS, com BullMQ + Redis para filas e Workers em segundo plano para a IA. A fonte de verdade é `docs/ARQUITETURA.md` (com o PDF `docs/ARQUITETURA.pdf`). Os guias `docs/IMPLEMENTACAO-FRONTEND.md`, `docs/IMPLEMENTACAO-BACKEND.md` e `docs/IMPLEMENTACAO-DEVOPS.md` detalham a implementação de cada equipe e derivam dela. A correção de redação por IA é exclusiva do plano Premium, com 4 correções por mês, e a regra é aplicada no servidor (D9). Recursos devem ter opção gratuita; custo só com aprovação explícita, exceto a IA (D10).
 
-O repositório está no estágio inicial: `src/app/App.tsx` renderiza um contêiner vazio e o app não tem navegação, cliente de rede, persistência, autenticação nem scripts de lint, testes ou verificação de tipos. O backend em `backend/` está implementado até o marco B4 (estado no §21 de `docs/IMPLEMENTACAO-BACKEND.md`). A orientação é retrato e a interface é clara (`app.json`). O script `web` existe, mas as dependências web não estão declaradas.
+O app já tem navegação (Expo Router), cliente HTTP, sessão, outbox local em SQLite, redação com plano Premium e cota, aviso por push e a identidade visual (`docs/DESIGN.md`). Ainda não há telas de questões, rotina, simulados e desempenho (faltam contratos do produto). O backend em `backend/` está implementado até o marco B4 (estado no §21 de `docs/IMPLEMENTACAO-BACKEND.md`). A orientação é retrato e a interface é clara (`app.json`). O script `web` existe, mas as dependências web não estão declaradas.
 
 ## Arquitetura
 
@@ -34,10 +34,10 @@ Altere apenas os arquivos necessários. Não refatore, reformate ou remova códi
 
 - Coloque cada código na camada definida em `docs/ARQUITETURA.md` (§10): composição em `src/app/`, contextos em `src/features/`, infraestrutura do cliente em `src/core/`, UI compartilhada em `src/components/`, hooks em `src/hooks/`, tokens em `src/constants/theme.ts`, contratos em `contracts/` e backend em `backend/src/`. Subpastas e arquivos nascem junto do primeiro uso real.
 - Respeite as regras de importação entre camadas descritas no `README.md` de cada camada. Contextos de `src/features/` não importam uns aos outros.
-- Mantenha o ponto de entrada em `index.ts` (raiz), declarado em `package.json`. Se o Expo Router for aprovado, `src/app/` passa a conter somente rotas e a composição migra conforme `docs/ARQUITETURA.md` (§10.4).
+- O ponto de entrada é `expo-router/entry` (`main` do `package.json`). `src/app/` contém somente rotas finas e o layout raiz com os providers; as telas ficam em `src/features/<contexto>/ui` (`docs/ARQUITETURA.md`, §10.4).
 - Preserve arquivos específicos de plataforma, como `*.web.tsx`.
 - Use componentes React Native e `StyleSheet` para UI nativa compartilhada. Mantenha CSS específico de navegador em arquivos web.
-- Preserve a estrutura, os exports e o estilo de imports existente. Agrupe imports de terceiros, relativos e `@/` com uma linha em branco entre grupos. O alias `@/` ainda não está configurado no `tsconfig.json`; ele entra junto do primeiro uso.
+- Preserve a estrutura, os exports e o estilo de imports existente. Agrupe imports de terceiros, relativos e `@/` com uma linha em branco entre grupos. Os aliases `@/` (para `src/`) e `@contracts/` (para `contracts/`) estão no `tsconfig.json`; imports de `contracts/` no app são `import type`.
 - Use tipos explícitos nas fronteiras: props, parâmetros de rota, comandos, consultas, eventos, dados persistidos, payloads de rede e saída da IA. Evite `any`, supressões de tipo, casts amplos e regras de lint desativadas.
 - Mantenha tipos próximos do único consumidor; mova-os para um local compartilhado somente após uma segunda reutilização real. Um tipo usado pelo app e pelo backend vai para `contracts/`.
 - Não crie barramento genérico de comandos ou consultas: rotas e telas chamam o handler diretamente.
@@ -45,7 +45,7 @@ Altere apenas os arquivos necessários. Não refatore, reformate ou remova códi
 
 ## Interface e Acessibilidade
 
-- A identidade visual do Aprova.AI ainda não está definida (`docs/DESIGN.md`). Reutilize tokens de `src/constants/theme.ts` e componentes compartilhados quando existirem e peça direção antes de inventar paleta, tipografia ou sistema visual.
+- A identidade visual está em `docs/DESIGN.md` e implementada em `src/constants/theme.ts`. Reutilize os tokens e os componentes de `src/components/` e peça direção antes de inventar paleta, tipografia ou sistema visual.
 - Respeite `userInterfaceStyle` de `app.json` (hoje `light`). Se o modo escuro for introduzido, cubra os dois modos na UI compartilhada.
 - Projete primeiro para telas estreitas em retrato; preserve ordem de leitura, foco visível e largura útil na implementação web.
 - Use rótulos claros, nomes acessíveis, contraste adequado e alvos de toque confortáveis. Não dependa apenas de cor, ícone, animação ou gesto para comunicar estado.
@@ -65,11 +65,10 @@ Altere apenas os arquivos necessários. Não refatore, reformate ou remova códi
 
 ## Validação Local
 
-Os scripts existentes são `npm run start`, `npm run android`, `npm run ios` e `npm run web`.
+Os scripts existentes são `npm run start`, `npm run android`, `npm run ios`, `npm run web`, `npm run lint`, `npm run typecheck` e `npm test`.
 
-- No app (raiz), não há scripts configurados para lint, verificação de tipos, testes, testes de ponta a ponta ou build de produção. Não os presuma nem os apresente como disponíveis.
+- No app (raiz), execute `npm run lint`, `npm run typecheck` e `npm test` e relate o resultado real de cada um. Não há scripts de testes de ponta a ponta nem de build de produção; não os presuma nem os apresente como disponíveis.
 - No `backend/` existem `npm run typecheck`, `npm run lint` e `npm test` (execute dentro de `backend/`); os testes de integração só rodam com `TEST_DATABASE_URL` e `TEST_REDIS_URL` apontando para instâncias descartáveis.
-- A verificação de tipos pode ser feita manualmente com `npx tsc --noEmit`. Relate-a como verificação manual, não como script do projeto.
 - Valide na plataforma afetada somente quando houver um destino local adequado. Mudanças em componentes compartilhados exigem considerar as versões nativa e web.
 - Relate os comandos executados, resultados e o que não pôde ser validado. Não alegue sucesso sem evidência.
 

@@ -9,9 +9,9 @@ paths:
 
 ## Current Scope
 
-The architecture (EDA + CQRS, BullMQ + Redis, AI Workers) is defined in `docs/ARQUITETURA.md`. The backend in `backend/` implements milestones B0 to B4 (status in §21 of `docs/IMPLEMENTACAO-BACKEND.md`), and the shared contracts live in `contracts/`. The app in `src/` has no network client, local outbox, or persistence yet.
+The architecture (EDA + CQRS, BullMQ + Redis, AI Workers) is defined in `docs/ARQUITETURA.md`. The backend in `backend/` implements milestones B0 to B4 (status in §21 of `docs/IMPLEMENTACAO-BACKEND.md`), and the shared contracts live in `contracts/`. The app in `src/` implements the HTTP client, session, local outbox, and the essay commands and queries against those contracts.
 
-Do not introduce a network service, queue, persistence layer, account flow, telemetry, or AI integration without an explicit request and an approved contract in `contracts/`. Follow the layer and import rules in `docs/ARQUITETURA.md` (§10).
+Do not introduce a new network service, queue, persistence layer, account flow, telemetry, or AI integration, or a command, query, or event outside the catalog, without an explicit request and an approved contract in `contracts/`. Follow the layer and import rules in `docs/ARQUITETURA.md` (§10).
 
 ## Commands, Queries, and Events
 

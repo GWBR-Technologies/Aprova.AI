@@ -34,7 +34,7 @@ Este documento define:
 
 Este documento não implementa funcionalidades, não adiciona dependências e não define a rubrica de correção de redações. Autenticação, banco de dados, canal de eventos e demais escolhas de tecnologia são propostos nos guias de implementação ([§15](#15-guias-de-implementação)) e só valem depois de aprovados ([§14](#14-decisões-em-aberto)).
 
-**Estado de partida (verificado em `package.json` e no código):** Expo `~57.0.24`, React Native `0.86.3`, React `19.2.3` e TypeScript `~6.0.3` em modo estrito. Não há roteador, cliente de rede, persistência, gerenciador de estado nem scripts de lint, testes ou verificação de tipos. O código existente é uma tela vazia em `src/app/App.tsx`.
+**Estado de partida (verificado em `package.json` e no código):** Expo `~57.0.24`, React Native `0.86.3`, React `19.2.3` e TypeScript `~6.0.3` em modo estrito. Não havia roteador, cliente de rede, persistência, gerenciador de estado nem scripts de lint, testes ou verificação de tipos, e o código era uma tela vazia em `src/app/App.tsx`. Depois dessa verificação o app passou a ter Expo Router, TanStack Query, `expo-sqlite`, scripts de `lint`, `typecheck` e `test` e as telas de login, redação e conta (ver `docs/IMPLEMENTACAO-FRONTEND.md`, §18).
 
 ## 2. Decisões arquiteturais
 
@@ -296,7 +296,7 @@ A consulta vai direto à API de consultas e lê o read store. Não passa por com
 
 ```text
 Aprova.AI/
-├── index.ts                    # Entrada do Expo (registerRootComponent); é o `main` do package.json
+├── (sem index.ts)              # A entrada é `expo-router/entry`, declarada em `main` no package.json
 ├── app.json
 ├── eas.json                    # Perfis do EAS Build (nasce quando o primeiro build for configurado)
 ├── package.json
@@ -351,7 +351,7 @@ Para não criar pastas vazias nem abstrações sem uso, o repositório contém h
 
 | Já existe | Nasce no primeiro uso |
 | --- | --- |
-| `index.ts`, `src/app/` | `src/components/`, `src/hooks/`, `src/constants/theme.ts` |
+| `src/app/`, `src/components/`, `src/hooks/`, `src/constants/theme.ts` | Subpastas de `src/features/` e `src/core/` conforme o primeiro uso |
 | `contracts/`, `src/features/`, `src/core/` (README) | Subpastas de `contracts/`, de `src/core/` e de cada contexto |
 | `backend/` com `package.json`, migrações, testes e o código de todas as camadas (marcos B0 a B4; estado em `docs/IMPLEMENTACAO-BACKEND.md`, §21); `contracts/commands`, `queries`, `events` e `auth` | `backend/src/workers/mock-exam-processing` e `notifications`, `infra/`, `.github/workflows/`, `eas.json` |
 
@@ -382,8 +382,8 @@ Contextos do app se comunicam por eventos e contratos, nunca importando uns aos 
 - `contracts/` só tem tipos, sem código executável. Valores de negócio, como o limite de correções por mês, são configuração do servidor e chegam ao app por consulta. A validação em tempo de execução fica no backend (§14).
 - Arquivos específicos de plataforma (`*.web.tsx`) ficam ao lado do arquivo nativo.
 - Não há barramento genérico de comandos ou consultas: rotas e telas chamam o handler diretamente. Um barramento só entra quando houver necessidade real (por exemplo, middleware comum).
-- O alias `@/` (para `src/`) e quaisquer outros aliases entram no `tsconfig.json` junto do primeiro uso; hoje não há aliases configurados.
-- Enquanto o Expo Router não for aprovado, `src/app/` contém a composição do app. Se for aprovado, esta seção registra para onde a composição migra, porque `src/app/` passa a conter somente rotas.
+- Os aliases `@/` (para `src/`) e `@contracts/` (para `contracts/`) estão no `tsconfig.json`; todo import de `contracts/` no app é `import type`.
+- O Expo Router foi aprovado (P5): `src/app/` contém somente rotas finas e o layout raiz (`_layout.tsx`) com os providers (TanStack Query, sessão, outbox, push). As telas ficam em `src/features/<contexto>/ui`, e a sessão, o cliente HTTP, o outbox e os ouvintes de push ficam em `src/core/`.
 - Quando `backend/package.json` existir, o `tsconfig.json` da raiz passa a excluir `backend/`, que terá o seu.
 - `infra/` e `.github/workflows/` contêm só configuração e scripts, nunca regra de negócio nem segredos.
 
@@ -404,7 +404,7 @@ Contextos do app se comunicam por eventos e contratos, nunca importando uns aos 
 | Antes | Depois | Motivo |
 | --- | --- | --- |
 | `src/app/index.ts` | `index.ts` (raiz) | O `package.json` declara `main: "index.ts"`, arquivo que não existia na raiz; mover corrige a entrada e reserva `src/app/` para composição ou rotas. O import passa a `./src/app/App`. |
-| `src/app/App.tsx` | Sem mudança | Já está na camada de composição. |
+| `src/app/App.tsx` e `index.ts` | Removidos; rotas em `src/app/` | O Expo Router (P5) passou a ser a entrada (`main: "expo-router/entry"`) e `src/app/` contém somente rotas. |
 | — | `contracts/`, `src/features/`, `src/core/` com `README.md` | Camadas do cliente e do contrato. |
 | — | `backend/src/{domain,application,infrastructure,api,workers,bootstrap}` com `README.md` | Camadas de API e Workers. |
 
@@ -465,14 +465,14 @@ Cada item abaixo exige decisão antes de qualquer implementação que dependa de
 
 | Decisão | Impacto | Status |
 | --- | --- | --- |
-| Autenticação e identidade do aluno | Todo comando, consulta e evento precisa pertencer a um aluno. | Decidido: login com Google e Apple (OIDC), JWT de acesso curto e refresh token rotativo emitidos pela API. |
+| Autenticação e identidade do aluno | Todo comando, consulta e evento precisa pertencer a um aluno. | Decidido: login com Google e Apple (OIDC), JWT de acesso curto e refresh token rotativo emitidos pela API. O produto confirmou em 02/11/2026 que não haverá e-mail e senha (evita banco de credenciais, custo e criptografia); o app implementa o cliente. |
 | Banco do write store e do read store | Modelagem de agregados, projeções e outbox. | Decidido: PostgreSQL com esquemas `write` e `read` na mesma instância. |
 | Runtime e framework do backend | Estrutura de `backend/package.json` e de `api/`. | Decidido: Node.js 24 LTS, Fastify, Drizzle ORM, BullMQ, Vitest. |
 | Hospedagem do Redis e dos Workers | Persistência AOF, alertas e escala. | Decidido (D11): Oracle Always Free com Docker Compose; Render depois. |
-| Canal de eventos para o app | Como o app descobre `EssayCorrected` e `MockExamProcessed`. | Proposta: consulta periódica com intervalo crescente, com push do Expo como aviso; aguarda aprovação. |
-| Persistência local do app (outbox) | Dependência nova no app. | Proposta: `expo-sqlite`; aguarda aprovação. |
+| Canal de eventos para o app | Como o app descobre `EssayCorrected` e `MockExamProcessed`. | Proposta P4: o app já faz a consulta periódica e recebe o aviso; o registro do token depende do comando `RegisterPushToken` (não aprovado) e das credenciais de push. |
+| Persistência local do app (outbox) | Dependência nova no app. | Aprovado (P5): `expo-sqlite`, implementado em `src/core/outbox`. |
 | Biblioteca de validação em tempo de execução | Esquemas de validação e o impacto em D7. | Proposta: `zod` somente no backend, com `contracts/` só de tipos (o esquema do backend é verificado contra o tipo com `satisfies`), o que preserva D7. Decidido. |
-| Expo Router e biblioteca de dados do cliente | Onde fica a composição de `src/app/` (§10.4). | Proposta: Expo Router e TanStack Query; aguarda aprovação. |
+| Expo Router e biblioteca de dados do cliente | Onde fica a composição de `src/app/` (§10.4). | Aprovado (P5): Expo Router e TanStack Query, implementados. |
 | Contrato exato do GPT 6.1 - Terra | `AiPort`, limites de taxa e prompts. | Parcial: identificador e preços confirmados; limites de contexto e de saída e formato de saída em aberto. |
 | Rubrica de correção de redação e regras de simulado | Esquema do resultado da IA e dos eventos. | Em aberto (produto). |
 | Fonte do plano Premium (assinatura, cobrança, preço, período de teste) | Implementação real de `EntitlementPort` e custos de loja. | Em aberto; custos estimados nos guias. |
@@ -480,7 +480,8 @@ Cada item abaixo exige decisão antes de qualquer implementação que dependa de
 | Exceção: `GetEntitlements` lê o write store pela `EntitlementPort` | O plano e a cota precisam ser exatos; a alternativa são os eventos `PlanChanged` e `UserRegistered` mais uma projeção. | Decidido: a exceção foi aprovada. |
 | Comando `RegisterPushToken`, consulta `GetEssayList` e fila `notifications` | Catálogos de comandos e consultas (§4) e de filas (§6), para o push e o histórico de redações. | Propostas; só entram nas tabelas desta arquitetura depois de aprovadas. |
 | LGPD: base legal, retenção e exclusão | Dados enviados à IA e guardados no servidor. | Em aberto. |
-| Executor de testes e integração contínua | Seção 12. | Decidido para o backend: Vitest e scripts `lint` e `typecheck` em `backend/`. Proposta para o app (`jest-expo`) e para a integração contínua (GitHub Actions); aguardam aprovação. |
+| Redação enviada como imagem, com transcrição e correção pela IA | `SubmitEssay` (hoje `text`), armazenamento do arquivo, `AiPort` com visão, custo da IA, LGPD (a foto é dado pessoal) e o estado do app. | Decidido pelo produto em 02/11/2026; contrato, armazenamento e Worker ainda não definidos (Back-End e DevOps). O app já tem a captura local da foto. |
+| Executor de testes e integração contínua | Seção 12. | Decidido para o backend: Vitest e scripts `lint` e `typecheck` em `backend/`. Aprovado no app (P7 e P8): `jest-expo`, Testing Library e ESLint, com scripts `lint`, `typecheck` e `test` na raiz. GitHub Actions aguarda aprovação. |
 
 ## 15. Guias de implementação
 

@@ -58,15 +58,19 @@ em [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md), também disponível em PDF
 ([`docs/ARQUITETURA.pdf`](docs/ARQUITETURA.pdf)). Cada equipe tem um guia de
 implementação (Front-End, Back-End e DevOps) em `docs/`, com o PDF correspondente.
 
-O backend (API de comandos e consultas, relay do outbox e Workers) está em
-`backend/`, com dependências e scripts próprios, e os contratos com o app estão
-em `contracts/`. O estado de cada marco e o que continua bloqueado estão no
-§21 de [`docs/IMPLEMENTACAO-BACKEND.md`](docs/IMPLEMENTACAO-BACKEND.md).
+O aplicativo Expo (Expo Router, outbox local, cliente HTTP, sessão, redação com
+Premium e cota, aviso por push) está em `src/`. O backend (API de comandos e
+consultas, relay do outbox e Workers) está em `backend/`, com dependências e
+scripts próprios, e os contratos entre os dois estão em `contracts/`. O estado
+de cada marco e o que continua bloqueado estão no §21 de
+[`docs/IMPLEMENTACAO-BACKEND.md`](docs/IMPLEMENTACAO-BACKEND.md) e no §18 de
+[`docs/IMPLEMENTACAO-FRONTEND.md`](docs/IMPLEMENTACAO-FRONTEND.md).
 
 | Arquivo ou diretório | Responsabilidade |
 | --- | --- |
-| `index.ts` | Registro do componente principal no Expo (`main` do `package.json`) |
-| `src/app/App.tsx` | Componente principal e estilos da tela inicial |
+| `src/app/` | Somente rotas do Expo Router (`main` do `package.json` é `expo-router/entry`) e providers do layout raiz |
+| `src/components/` | UI compartilhada: `AppText`, `Button`, `Banner`, `Screen`, `OfflineBanner` |
+| `src/constants/theme.ts` | Tokens visuais do Design System (cores, espaçamento, raios, tipografia) |
 | `src/features/` | Contextos de negócio do app, cada um com comandos, consultas, eventos e UI |
 | `src/core/` | Infraestrutura do cliente: HTTP, outbox local, persistência e eventos |
 | `contracts/` | Contrato entre app e backend: comandos, consultas e eventos |
@@ -127,8 +131,10 @@ Instale as dependências respeitando o `package-lock.json` versionado:
 npm ci
 ```
 
-O ponto de entrada é o `index.ts` da raiz, declarado em `main` no
-`package.json`. Inicie o servidor de desenvolvimento:
+O ponto de entrada é o `expo-router/entry`, declarado em `main` no
+`package.json`; as rotas ficam em `src/app/`. Copie `.env.example` para
+`.env.local` e preencha `EXPO_PUBLIC_API_URL` (HTTPS) e, para o login com
+Google, `EXPO_PUBLIC_GOOGLE_CLIENT_ID`. Inicie o servidor de desenvolvimento:
 
 ```bash
 npm run start
@@ -155,10 +161,13 @@ preparação descrita em [Estado atual e limites conhecidos](#estado-atual-e-lim
 | `npm run android` | Iniciar o Expo e abrir o destino Android |
 | `npm run ios` | Iniciar o Expo e abrir o destino iOS |
 | `npm run web` | Iniciar o Expo para web |
+| `npm run lint` | Executar o ESLint (`expo lint`, com `eslint-config-expo`) |
+| `npm run typecheck` | Verificar os tipos (`tsc --noEmit`) |
+| `npm test` | Executar os testes (`jest-expo` e Testing Library) |
 
-O `package.json` ainda não possui scripts de lint, testes, verificação de
-tipos ou build de produção. Esses comandos devem ser documentados quando
-forem configurados no projeto.
+Não há script de build de produção: ele nasce com o `eas.json` (DevOps).
+O login nativo, o SQLite e o push exigem um build de desenvolvimento
+(`developmentClient`); não funcionam no Expo Go.
 
 ## Estrutura de arquivos
 
@@ -180,11 +189,13 @@ Aprova.AI/
 ├── contracts/           # Contrato app <-> backend (comandos, consultas, eventos, auth)
 ├── docs/                # Arquitetura, guias de implementação (.md e .pdf), guias e design
 ├── src/
-│   ├── app/
-│   │   └── App.tsx      # Tela inicial (camada de composição)
-│   ├── core/            # Infraestrutura do cliente
-│   └── features/        # Contextos de negócio do app
-├── index.ts             # Registro do componente principal no Expo
+│   ├── app/             # Rotas do Expo Router e layout raiz (providers)
+│   ├── components/      # UI compartilhada
+│   ├── constants/       # theme.ts (tokens visuais)
+│   ├── core/            # Cliente HTTP e sessão, outbox (SQLite), storage, eventos (polling e push)
+│   ├── features/        # account e essay (comandos, consultas, eventos e UI)
+│   └── hooks/           # Hooks e formatadores compartilhados
+├── .env.example         # Variáveis públicas esperadas pelo app
 ├── app.json             # Configuração do Expo
 ├── package.json         # Dependências e scripts
 ├── package-lock.json    # Versões resolvidas das dependências
@@ -210,19 +221,23 @@ Aprova.AI/
 
 ## Estado atual e limites conhecidos
 
-- **Interface inicial:** `App.tsx` renderiza apenas um contêiner branco.
-  Ainda não há funcionalidades de produto implementadas.
+- **Funcionalidades:** login (Google e Apple), redação ponta a ponta com plano
+  Premium e cota, captura local da foto da folha (o envio da foto aguarda o
+  contrato), outbox local, consulta periódica e aviso por push. Questões,
+  rotina, simulados e desempenho não têm tela: faltam os contratos do produto
+  (`docs/IMPLEMENTACAO-FRONTEND.md`, seção 17).
 - **Suporte web:** existe o script `web`, mas `react-dom` e
   `react-native-web` ainda não estão declarados nas dependências.
-- **Navegação:** Expo Router não está instalado na base atual.
-- **Validação:** o app na raiz não tem scripts de lint, testes ou build de
-  produção. O `backend/` tem `npm run typecheck`, `npm run lint` e `npm test`
-  (execute dentro de `backend/`).
-- **Arquitetura:** o backend está implementado até o marco B4. No app ainda
-  não há cliente de rede, outbox local nem persistência. As decisões em aberto
-  estão em `docs/ARQUITETURA.md` (seção 14).
-- **Design:** a identidade visual do Aprova.AI ainda não foi definida
-  (`docs/DESIGN.md`).
+- **Navegação:** Expo Router, com rotas protegidas pela sessão.
+- **Validação:** na raiz existem `npm run lint`, `npm run typecheck` e `npm test`
+  (limitado a `src/`); não há teste de ponta a ponta nem verificação em aparelho
+  real (TalkBack e VoiceOver) registrada. O `backend/` tem `npm run typecheck`,
+  `npm run lint` e `npm test` (execute dentro de `backend/`).
+- **Arquitetura:** o backend está implementado até o marco B4 e o app usa os
+  contratos de `contracts/`. As decisões em aberto estão em
+  `docs/ARQUITETURA.md` (seção 14).
+- **Design:** identidade registrada em `docs/DESIGN.md`. Poppins e Inter ainda
+  não foram instaladas (dependência não aprovada); o app usa a fonte do sistema.
 
 ## Documentação complementar
 

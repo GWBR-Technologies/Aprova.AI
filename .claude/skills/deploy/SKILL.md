@@ -18,7 +18,7 @@ Run only checks that exist in `package.json` and are relevant to the change:
 
 1. `npm run web`, `npm run ios`, or `npm run android` when the affected platform and a local target are available
 
-There are no configured lint, type-check, test, end-to-end, or production-build scripts. Do not invent those scripts. A manual type check with `npx tsc --noEmit` may be run and must be reported as manual.
+`npm run lint`, `npm run typecheck`, and `npm test` are configured; run them and report each result. There are no end-to-end or production-build scripts. Do not invent them.
 
 ## Output Contract
 
