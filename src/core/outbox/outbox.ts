@@ -110,6 +110,7 @@ export function createOutbox(config: OutboxConfig) {
   let initialized: Promise<void> | null = null;
   let running: Promise<void> | null = null;
   let rerun = false;
+  let activeUserId = '';
   let timer: unknown = null;
   let timerUserId: string | null = null;
 
@@ -131,7 +132,9 @@ export function createOutbox(config: OutboxConfig) {
   async function setState(
     commandId: string,
     patch: { state: OutboxState; clearBody?: boolean; attempts?: number; nextAttemptAt?: number; lastErrorCode?: string | null },
-  ) {
+    /** Só altera se a linha ainda estiver neste estado (por exemplo, não foi descartada). */
+    onlyIfState?: OutboxState,
+  ): Promise<boolean> {
     const sets = ['state = ?', 'updated_at = ?'];
     const params: SqlParam[] = [patch.state, now()];
     if (patch.clearBody) sets.push('body = NULL');
@@ -148,8 +151,14 @@ export function createOutbox(config: OutboxConfig) {
       params.push(patch.lastErrorCode);
     }
     params.push(commandId);
-    const { changes } = await db.runAsync(`UPDATE outbox SET ${sets.join(', ')} WHERE command_id = ?`, params);
+    let where = 'command_id = ?';
+    if (onlyIfState) {
+      where += ' AND state = ?';
+      params.push(onlyIfState);
+    }
+    const { changes } = await db.runAsync(`UPDATE outbox SET ${sets.join(', ')} WHERE ${where}`, params);
     if (changes > 0) notify(commandId, patch.state);
+    return changes > 0;
   }
 
   async function runRound(userId: string) {
@@ -164,14 +173,17 @@ export function createOutbox(config: OutboxConfig) {
       // FIFO estrito: um comando que ainda aguarda o atraso bloqueia os mais novos.
       if (row.nextAttemptAt > now()) break;
       if (row.body === null) continue;
-      await setState(row.commandId, { state: 'sending' });
+      // Se o aluno descartou o comando depois da seleção, a linha não existe mais: não envia.
+      if (!(await setState(row.commandId, { state: 'sending' }, 'queued-locally'))) continue;
       try {
         await send(row.route, JSON.parse(row.body) as CommandEnvelope<unknown>);
         // O texto só é necessário até o servidor confirmar; depois disso é apagado (§6.3).
         await setState(row.commandId, { state: 'received', clearBody: true, lastErrorCode: null });
       } catch (error) {
         const failure = error instanceof ApiRequestError ? error : null;
-        if (failure && !failure.retryable) {
+        // Um 401 aqui significa que a renovação do token falhou ou a sessão terminou: não é rejeição
+        // do comando. Ele fica na fila, intacto, até o mesmo usuário voltar a entrar (§9.3).
+        if (failure && !failure.retryable && failure.status !== 401) {
           await setState(row.commandId, {
             state: 'failed',
             lastErrorCode: failure.apiError?.code ?? `HTTP_${failure.status ?? 0}`,
@@ -208,12 +220,13 @@ export function createOutbox(config: OutboxConfig) {
     }, Math.max(0, next.at - now()));
   }
 
-  async function drain(userId: string) {
+  async function drain() {
     do {
       rerun = false;
-      await runRound(userId);
+      // O agendamento fica dentro do laço: um pedido feito enquanto ele roda também é atendido.
+      await runRound(activeUserId);
+      await scheduleNext(activeUserId);
     } while (rerun);
-    await scheduleNext(userId);
   }
 
   /**
@@ -221,11 +234,12 @@ export function createOutbox(config: OutboxConfig) {
    * um comando gravado depois da seleção não espere o temporizador.
    */
   function flush(userId: string): Promise<void> {
+    activeUserId = userId;
     if (running) {
       rerun = true;
       return running;
     }
-    running = drain(userId).finally(() => {
+    running = drain().finally(() => {
       running = null;
     });
     return running;

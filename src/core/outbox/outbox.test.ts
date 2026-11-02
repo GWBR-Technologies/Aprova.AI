@@ -270,4 +270,63 @@ describe('createOutbox', () => {
     expect(stateOf(db, 'c1')).toBeUndefined();
     expect(stateOf(db, 'c2')).toBeDefined();
   });
+
+  it('mantém o comando na fila quando a renovação do token falha (401), sem marcá-lo como failed', async () => {
+    const { outbox, db, now } = setup(async () => {
+      throw new ApiRequestError({ kind: 'http', status: 401 });
+    });
+    await outbox.enqueue({ userId: 'u1', route: 'r', command: envelope('c1') });
+    await outbox.flush('u1');
+
+    expect(stateOf(db, 'c1')).toMatchObject({ state: 'queued-locally', attempts: 1, last_error_code: 'HTTP_401' });
+    expect(stateOf(db, 'c1')?.body).not.toBeNull();
+    expect(stateOf(db, 'c1')?.next_attempt_at).toBe(now() + 2000);
+  });
+
+  it('não envia um comando descartado depois de a rodada tê-lo selecionado', async () => {
+    let releaseFirst: (value: CommandAccepted) => void = () => undefined;
+    const sent: string[] = [];
+    const { outbox } = setup((_route, command) => {
+      sent.push(command.commandId);
+      return new Promise<CommandAccepted>((resolve) => (releaseFirst = resolve));
+    });
+    await outbox.enqueue({ userId: 'u1', route: 'r', command: envelope('c1') });
+    await outbox.enqueue({ userId: 'u1', route: 'r', command: envelope('c2') });
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(sent).toEqual(['c1']);
+    await outbox.discard('c2');
+    releaseFirst(accepted('c1'));
+    await outbox.flush('u1');
+
+    expect(sent).toEqual(['c1']);
+  });
+
+  it('atende um comando gravado enquanto o próximo envio está sendo agendado', async () => {
+    const db = sqliteDb();
+    let gate: (() => void) | null = null;
+    const slowDb: OutboxDb = {
+      ...db,
+      getFirstAsync: async <T,>(sql: string, params: (string | number | null)[]) => {
+        const result = await db.getFirstAsync<T>(sql, params);
+        if (sql.includes('MIN(next_attempt_at)') && gate === null) {
+          // Segura a primeira consulta de agendamento até um novo comando ser gravado.
+          await new Promise<void>((resolve) => (gate = resolve));
+        }
+        return result;
+      },
+    };
+    const send = jest.fn(async (_route: string, command: CommandEnvelope<unknown>) => accepted(command.commandId));
+    const outbox = createOutbox({ db: slowDb, send, now: () => 1_000_000, setTimer: jest.fn(), clearTimer: jest.fn() });
+
+    await outbox.enqueue({ userId: 'u1', route: 'r', command: envelope('c1') });
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(gate).not.toBeNull();
+
+    await outbox.enqueue({ userId: 'u1', route: 'r', command: envelope('c2') });
+    (gate as (() => void) | null)?.();
+    await outbox.flush('u1');
+
+    expect(send.mock.calls.map((call) => call[1].commandId)).toEqual(['c1', 'c2']);
+  });
 });
