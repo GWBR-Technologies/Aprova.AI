@@ -36,6 +36,8 @@ export type ApiDeps = {
   essayMaxChars: number;
   verifyAccessToken: (token: string) => Promise<string | null>;
   ready: () => Promise<boolean>;
+  /** Recebe a latência de cada resposta; a composição a liga às métricas. */
+  observeRequest?: (sample: { method: string; route: string; status: number; seconds: number }) => void;
   auth: AuthHandlers;
   commands: StudyCommandHandlers & { submitEssay: ReturnType<typeof makeSubmitEssayHandler> };
   queries: {
@@ -63,6 +65,13 @@ export async function buildServer(deps: ApiDeps): Promise<FastifyInstance> {
   app.addHook('onRequest', async (request) => {
     request.correlationId = request.id;
   });
+  const observe = deps.observeRequest;
+  if (observe) {
+    app.addHook('onResponse', async (request, reply) => {
+      // A rota do molde (/v1/essays/:essayId), nunca a URL real, para não multiplicar séries.
+      observe({ method: request.method, route: request.routeOptions.url ?? 'desconhecida', status: reply.statusCode, seconds: reply.elapsedTime / 1000 });
+    });
+  }
   registerErrorHandler(app);
 
   // CORS fica desligado: o app nativo não precisa dele (§12.4 do guia).

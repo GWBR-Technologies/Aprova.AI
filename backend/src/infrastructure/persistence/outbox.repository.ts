@@ -4,6 +4,16 @@ import type { OutboxRepository } from '../../application/ports/outbox.port.ts';
 import type { Executor } from './database.ts';
 import { essays, mockExams, outbox } from './schema.ts';
 
+/** Situação do outbox para as métricas do relay. */
+export async function outboxPendingStats(db: Executor, now: Date) {
+  const [row] = await db
+    .select({ pending: sql<number>`count(*)::int`, oldest: sql<string | null>`min(${outbox.createdAt})` })
+    .from(outbox)
+    .where(isNull(outbox.publishedAt));
+  const oldest = row?.oldest ? new Date(row.oldest).getTime() : now.getTime();
+  return { pending: row?.pending ?? 0, oldestAgeSeconds: Math.max((now.getTime() - oldest) / 1000, 0) };
+}
+
 export function outboxRepository(db: Executor): OutboxRepository {
   return {
     async add(message) {
