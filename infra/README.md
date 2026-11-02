@@ -9,7 +9,7 @@ Implantação do backend do Aprova.AI na Oracle Cloud (Always Free) com Docker C
 | `Caddyfile` | HTTPS automático e proxy reverso da API; `/metrics` nunca sai pelo proxy |
 | `env/` | Modelos (`*.env.example`) dos arquivos de `/opt/aprova/secrets`, só com nomes |
 | `observability/` | `config.alloy`, `alerts.yml` (regras de alerta) e `dashboard-operacao.json` |
-| `scripts/` | `bootstrap-host.sh`, `deploy.sh`, `backup.sh`, `restore-drill.sh`, `create-monitor-role.sh` |
+| `scripts/` | `bootstrap-host.sh`, `deploy.sh`, `backup.sh`, `restore-drill.sh`, `create-db-logins.sh`, `create-monitor-role.sh` |
 | `systemd/` | Temporizadores de deploy (2 min) e de backup (03:30, horário de Brasília) |
 
 O `Dockerfile` do backend fica em `backend/Dockerfile`; os fluxos de CI/CD em `.github/workflows/`; `eas.json` na raiz.
