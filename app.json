@@ -25,6 +25,7 @@
       "expo-router",
       "expo-sqlite",
       "expo-secure-store"
-    ]
+    ],
+    "scheme": "aprovaai"
   }
 }
