@@ -41,6 +41,52 @@ export function createMetrics(service: string) {
       help: 'Custo acumulado estimado da IA em dólares',
       registers,
     }),
+    deadLetter: new Counter({
+      name: 'dead_letter_total',
+      help: 'Mensagens publicadas na fila dead-letter pelo relay',
+      registers,
+    }),
+    /** Profundidade por estado e idade do job mais antigo à espera, lidas do Redis a cada coleta. */
+    queueGauges(
+      read: () => Promise<{ queue: string; counts: Record<string, number>; oldestWaitingAgeSeconds: number }[]>,
+    ) {
+      let last: ReturnType<typeof read> | undefined;
+      const snapshot = () => (last ??= read().finally(() => (last = undefined)));
+      new Gauge({
+        name: 'queue_jobs',
+        help: 'Jobs por fila e estado',
+        labelNames: ['queue', 'state'],
+        registers,
+        async collect() {
+          for (const { queue, counts } of await snapshot()) {
+            for (const [state, value] of Object.entries(counts)) this.set({ queue, state }, value);
+          }
+        },
+      });
+      new Gauge({
+        name: 'queue_oldest_waiting_age_seconds',
+        help: 'Idade do job mais antigo à espera, por fila',
+        labelNames: ['queue'],
+        registers,
+        async collect() {
+          for (const { queue, oldestWaitingAgeSeconds } of await snapshot()) this.set({ queue }, oldestWaitingAgeSeconds);
+        },
+      });
+    },
+    /** Custo da IA no mês corrente (UTC, como a cobrança do provedor) e o orçamento configurado. */
+    aiBudgetGauges(readMonthCost: () => Promise<number>, monthlyBudgetUsd: number | undefined) {
+      new Gauge({
+        name: 'ai_cost_month_to_date_usd',
+        help: 'Custo estimado da IA desde o início do mês em UTC, lido de ai_usage',
+        registers,
+        async collect() {
+          this.set(await readMonthCost());
+        },
+      });
+      if (monthlyBudgetUsd !== undefined) {
+        new Gauge({ name: 'ai_monthly_budget_usd', help: 'Orçamento mensal da IA (AI_MONTHLY_BUDGET_USD)', registers }).set(monthlyBudgetUsd);
+      }
+    },
     /** Gauges do outbox; o valor é lido do banco a cada coleta. */
     outboxGauges(read: () => Promise<{ pending: number; oldestAgeSeconds: number }>) {
       let last: Promise<{ pending: number; oldestAgeSeconds: number }> | undefined;

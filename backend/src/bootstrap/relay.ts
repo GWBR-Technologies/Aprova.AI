@@ -1,3 +1,4 @@
+import type { QueuePort } from '../application/ports/queue.port.ts';
 import { createLogger } from '../infrastructure/observability/logger.ts';
 import { createMetrics, startMetricsServer } from '../infrastructure/observability/metrics.ts';
 import { createDatabase } from '../infrastructure/persistence/database.ts';
@@ -20,8 +21,17 @@ const now = () => new Date();
 // Alerta principal do relay: idade da linha pendente mais antiga (Redis fora do ar ou relay parado).
 metrics.outboxGauges(() => outboxPendingStats(db, now()));
 
-const relay = startRelay({ uow: drizzleUnitOfWork(db), queue: queue.port, now, logger });
-const metricsServer = startMetricsServer(intEnv('METRICS_PORT', 9100), () => metrics.registry.metrics(), metrics.registry.contentType);
+// Conta o que vai para a dead-letter sem tocar no relay: o contador fica na composição.
+const countingQueue: QueuePort = {
+  ...queue.port,
+  async publish(target, message, opts) {
+    await queue.port.publish(target, message, opts);
+    if (target === 'dead-letter') metrics.deadLetter.inc();
+  },
+};
+
+const relay = startRelay({ uow: drizzleUnitOfWork(db), queue: countingQueue, now, logger });
+const metricsServer = startMetricsServer(intEnv('METRICS_PORT', 9464), () => metrics.registry.metrics(), metrics.registry.contentType);
 logger.info({}, 'Relay do outbox iniciado');
 
 onShutdown(logger, async () => {

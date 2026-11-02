@@ -34,6 +34,8 @@ export type ApiDeps = {
   logger: FastifyBaseLogger;
   bodyLimitBytes: number;
   essayMaxChars: number;
+  /** SHA da versão em execução, devolvido no /readyz. */
+  version?: string | null;
   verifyAccessToken: (token: string) => Promise<string | null>;
   ready: () => Promise<boolean>;
   /** Recebe a latência de cada resposta; a composição a liga às métricas. */
@@ -85,7 +87,7 @@ export async function buildServer(deps: ApiDeps): Promise<FastifyInstance> {
     keyGenerator: (request) => request.userId || request.ip,
   });
 
-  registerHealthRoutes(app, deps.ready);
+  registerHealthRoutes(app, deps.ready, deps.version ?? null);
 
   await app.register(async (scope) => registerAuthRoutes(scope, deps.auth), { prefix: '/v1/auth' });
 

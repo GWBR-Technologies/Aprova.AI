@@ -56,9 +56,11 @@ const auth = { authorization: 'Bearer valid' };
 
 describe('operação', () => {
   it('responde liveness e readiness', async () => {
-    const app = await buildServer(deps({ ready: async () => false }));
+    const app = await buildServer(deps({ ready: async () => false, version: 'abc1234' }));
     expect((await app.inject({ url: '/healthz' })).statusCode).toBe(200);
-    expect((await app.inject({ url: '/readyz' })).statusCode).toBe(503);
+    const readyz = await app.inject({ url: '/readyz' });
+    expect(readyz.statusCode).toBe(503);
+    expect(readyz.json()).toEqual({ status: 'unavailable', version: 'abc1234' });
   });
 });
 

@@ -113,10 +113,21 @@ export function bullmqQueue({ producer, createWorkerConnection, logger }: Connec
 
   return {
     port,
-    /** Métricas das filas no formato do Prometheus (§9.6 do guia). */
-    async prometheusMetrics(names: QueueName[]) {
-      const texts = await Promise.all(names.map((name) => queueFor(name).exportPrometheusMetrics()));
-      return texts.join('\n');
+    /**
+     * Profundidade por estado e idade do job mais antigo à espera, por fila (§9.6 do guia). Lidas
+     * direto do Redis: o exportPrometheusMetrics do BullMQ repete HELP e TYPE a cada fila, o que
+     * invalida o texto quando várias filas são expostas juntas.
+     */
+    async queueStats(names: QueueName[], now: Date) {
+      return Promise.all(
+        names.map(async (name) => {
+          const queue = queueFor(name);
+          const counts = await queue.getJobCounts('waiting', 'active', 'delayed', 'failed');
+          const [oldest] = await queue.getJobs(['wait'], 0, 0, true);
+          const oldestWaitingAgeSeconds = oldest ? Math.max((now.getTime() - oldest.timestamp) / 1000, 0) : 0;
+          return { queue: name, counts, oldestWaitingAgeSeconds };
+        }),
+      );
     },
   };
 }

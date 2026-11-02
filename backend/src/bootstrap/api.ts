@@ -62,6 +62,8 @@ const app = await buildServer({
   // O maior corpo é o da redação: até 4 bytes por caractere em UTF-8, mais o envelope.
   bodyLimitBytes: essayMaxChars * 4 + 16 * 1024,
   essayMaxChars,
+  // Versão publicada no /readyz, para a promoção confirmar o que está no ar.
+  version: optionalEnv('GIT_SHA') ?? null,
   verifyAccessToken: (token) => accessTokens.verify(token),
   ready: async () => {
     await db.execute(sql`select 1`);
@@ -98,7 +100,7 @@ const app = await buildServer({
 
 // Dentro da rede do Compose; a única porta pública é a do proxy (guia de DevOps).
 await app.listen({ host: '0.0.0.0', port: intEnv('PORT', 3000) });
-const metricsServer = startMetricsServer(intEnv('METRICS_PORT', 9100), () => metrics.registry.metrics(), metrics.registry.contentType);
+const metricsServer = startMetricsServer(intEnv('METRICS_PORT', 9464), () => metrics.registry.metrics(), metrics.registry.contentType);
 
 onShutdown(logger, async () => {
   await app.close();

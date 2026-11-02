@@ -7,6 +7,7 @@ import { essayCorrectionPrompts } from '../infrastructure/ai/prompts/essay-corre
 import { createLogger } from '../infrastructure/observability/logger.ts';
 import { createMetrics, type Metrics, startMetricsServer } from '../infrastructure/observability/metrics.ts';
 import { createDatabase } from '../infrastructure/persistence/database.ts';
+import { aiUsageRepository } from '../infrastructure/persistence/essay.repository.ts';
 import { drizzleUnitOfWork } from '../infrastructure/persistence/unit-of-work.ts';
 import { bullmqQueue } from '../infrastructure/queue/bullmq.queue.adapter.ts';
 import { createProducerConnection, createWorkerConnection } from '../infrastructure/queue/connections.ts';
@@ -29,6 +30,15 @@ const uow = drizzleUnitOfWork(db);
 const now = () => new Date();
 
 queue.port.consume('projections', makeProjectionsProcessor({ uow, logger }), { concurrency: PROJECTIONS_CONCURRENCY });
+
+metrics.queueGauges(() => queue.queueStats(ALL_QUEUES, now()));
+// O mês do orçamento segue a cobrança do provedor (UTC), não a janela da cota do aluno. A métrica só
+// expõe o valor configurado: o freio que pausa a fila (§10.5 do guia) depende de aprovação.
+const startOfUtcMonth = () => {
+  const n = now();
+  return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), 1));
+};
+metrics.aiBudgetGauges(() => aiUsageRepository(db).costSince(startOfUtcMonth()), numberEnv('AI_MONTHLY_BUDGET_USD'));
 
 /** Conta chamadas, tokens e custo da IA sem mudar o comportamento do adaptador. */
 function metered(ai: AiPort, prices: AiPrices, m: Metrics): AiPort {
@@ -89,8 +99,8 @@ if (prompt) {
 // pelo produto; até lá os jobs aguardam nela.
 
 const metricsServer = startMetricsServer(
-  intEnv('METRICS_PORT', 9100),
-  async () => `${await metrics.registry.metrics()}\n${await queue.prometheusMetrics(ALL_QUEUES)}`,
+  intEnv('METRICS_PORT', 9464),
+  () => metrics.registry.metrics(),
   metrics.registry.contentType,
 );
 logger.info({}, 'Workers iniciados');
