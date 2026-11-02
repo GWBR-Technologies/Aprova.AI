@@ -40,10 +40,20 @@ export function subscribePushNotices({ onReceived, onOpened }: PushListener): ()
     if (notice) onReceived(notice);
   });
 
-  const opened = Notifications.addNotificationResponseReceivedListener((response) => {
+  const handled = new Set<string>();
+  const open = (response: Notifications.NotificationResponse) => {
+    const id = response.notification.request.identifier;
+    if (handled.has(id)) return;
+    handled.add(id);
     const notice = parsePushNotice(response.notification.request.content.data);
     if (notice) onOpened(notice);
-  });
+  };
+
+  const opened = Notifications.addNotificationResponseReceivedListener(open);
+
+  // O toque que abriu o app encerrado chega antes deste ouvinte existir (a sessão carrega depois).
+  const initial = Notifications.getLastNotificationResponse();
+  if (initial) open(initial);
 
   return () => {
     received.remove();
