@@ -1,0 +1,142 @@
+# Regras de alerta (formato Prometheus) para o Grafana Cloud: carregue com `mimirtool rules load` ou importe
+# pela interface (Alerting > Alert rules). Notificação por e-mail no plano gratuito (§13.4 do guia de DevOps).
+# Os limiares são propostas a calibrar no marco B7. Cada alerta aponta para o runbook (§18).
+#
+# Nomes de métrica: os da API e dos Workers seguem o guia do Back-End (§15.2); os nomes de rótulo
+# (route, status, outcome) e os valores de outcome precisam ser confirmados com o Back-End no marco B6.
+#
+# Fora deste arquivo, por dependerem de definições externas:
+#   - API fora do ar e validade do certificado: verificações externas do Grafana Cloud Synthetic Monitoring
+#     (GET /readyz a cada minuto; alerta com 2 minutos de falha; certificado com menos de 14 dias).
+#   - Atraso das filas essay-correction e projections (idade do job mais antigo) e custo da IA (80% de
+#     AI_MONTHLY_BUDGET_USD): exigem que o Back-End defina o nome da métrica de idade do job por fila e que
+#     exponha o orçamento mensal como métrica.
+groups:
+  - name: aprova-app
+    rules:
+      - alert: DeadLetterCresceu
+        expr: increase(dead_letter_total[5m]) > 0
+        labels: { severity: high }
+        annotations:
+          summary: Mensagem nova na dead-letter
+          runbook: R4 (reprocessar dead-letter)
+
+      - alert: ApiComErros5xx
+        expr: |
+          sum(rate(http_request_duration_seconds_count{status=~"5.."}[5m]))
+            / sum(rate(http_request_duration_seconds_count[5m])) > 0.02
+        for: 5m
+        labels: { severity: high }
+        annotations:
+          summary: Mais de 2% de respostas 5xx por 5 minutos
+          runbook: R2 (rollback) e R11
+
+      - alert: LatenciaDosComandosAlta
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(http_request_duration_seconds_bucket{route=~"/v1/commands/.*"}[5m]))) > 1
+        for: 10m
+        labels: { severity: medium }
+        annotations:
+          summary: p95 dos comandos acima de 1 s por 10 minutos
+          runbook: R11
+
+      - alert: OutboxParado
+        expr: outbox_oldest_pending_age_seconds > 120
+        for: 1m
+        labels: { severity: high }
+        annotations:
+          summary: Linha pendente do outbox há mais de 2 minutos
+          runbook: R11 (relay e Redis)
+
+      - alert: FalhaDaIA
+        expr: |
+          sum(rate(ai_requests_total{outcome!="success"}[10m]))
+            / sum(rate(ai_requests_total[10m])) > 0.2
+        for: 10m
+        labels: { severity: high }
+        annotations:
+          summary: Mais de 20% de falhas nas chamadas à IA em 10 minutos
+          runbook: R8
+
+      - alert: AlvoDeMetricasForaDoAr
+        expr: up{job="aprova-app"} == 0
+        for: 3m
+        labels: { severity: high }
+        annotations:
+          summary: API ou Worker sem expor métricas
+          runbook: R11
+
+  - name: aprova-infra
+    rules:
+      - alert: RedisCheio
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.7
+        for: 5m
+        labels: { severity: high }
+        annotations:
+          summary: Redis acima de 70% do maxmemory (com noeviction, as escritas passam a falhar)
+          runbook: R5
+
+      - alert: PostgresConexoesAltas
+        expr: sum(pg_stat_activity_count) > 80
+        for: 5m
+        labels: { severity: medium }
+        annotations:
+          summary: Mais de 80 conexões no PostgreSQL
+          runbook: R9
+
+      - alert: BackupVelho
+        expr: time() - aprova_backup_last_success_timestamp_seconds > 26 * 3600
+        labels: { severity: high }
+        annotations:
+          summary: Último backup do PostgreSQL com mais de 26 horas
+          runbook: R3
+
+      - alert: BackupSemMetrica
+        expr: absent(aprova_backup_last_success_timestamp_seconds)
+        for: 26h
+        labels: { severity: high }
+        annotations:
+          summary: Nenhuma métrica de backup recebida em 26 horas
+          runbook: R3
+
+      - alert: BackupSemCopiaExterna
+        expr: aprova_backup_offsite_enabled == 0 or aprova_backup_offsite_last_run_ok == 0
+        for: 30m
+        labels: { severity: medium }
+        annotations:
+          summary: Backup sem cópia fora da VM (uma cópia só na VM não é backup)
+          runbook: R3
+
+      - alert: HostDiscoCheio
+        expr: |
+          1 - node_filesystem_avail_bytes{mountpoint="/", fstype!~"tmpfs|overlay"}
+            / node_filesystem_size_bytes{mountpoint="/", fstype!~"tmpfs|overlay"} > 0.8
+        for: 10m
+        labels: { severity: medium }
+        annotations:
+          summary: Disco do host acima de 80%
+          runbook: R5
+
+      - alert: HostMemoriaAlta
+        expr: 1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes > 0.85
+        for: 10m
+        labels: { severity: medium }
+        annotations:
+          summary: Memória do host acima de 85%
+          runbook: R5
+
+  # Informativo (§4.3): a Oracle pode recuperar instâncias Always Free ociosas. O node-exporter roda na
+  # rede do Compose, então a condição de rede do critério da Oracle não é medida aqui.
+  - name: aprova-ociosidade
+    interval: 1h
+    rules:
+      - alert: RiscoDeOciosidadeOracle
+        expr: |
+          quantile_over_time(0.95, (1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])))[5d:5m]) < 0.2
+          and
+          quantile_over_time(0.95, (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)[5d:5m]) < 0.2
+        labels: { severity: low }
+        annotations:
+          summary: CPU e memória abaixo de 20% (p95) por 5 dias; risco de recuperação da instância
+          runbook: §4.3 e R6

@@ -160,7 +160,7 @@ install -m 0644 "$APP_DIR"/repo/infra/systemd/*.service "$APP_DIR"/repo/infra/sy
 systemctl daemon-reload
 # Os temporizadores só são ligados com os segredos no lugar; antes disso falhariam a cada execução.
 missing=0
-for f in common.env api.env worker.env relay.env migrate.env caddy.env postgres_password redis_password; do
+for f in common.env api.env worker.env relay.env migrate.env caddy.env alloy.env postgres_password redis_password postgres_monitor_password; do
   [ -f "$APP_DIR/secrets/$f" ] || { echo "ausente: $APP_DIR/secrets/$f"; missing=1; }
 done
 if [ "$missing" -eq 0 ]; then

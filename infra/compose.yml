@@ -108,6 +108,61 @@ services:
       retries: 10
     networks: [data]
 
+  # Observabilidade (docs/IMPLEMENTACAO-DEVOPS.md, §13): o Alloy raspa as métricas internas e lê os logs
+  # dos contêineres e envia ao Grafana Cloud. Exportadores ficam só na rede interna, sem portas publicadas.
+  alloy:
+    image: grafana/alloy:v1.21.3
+    restart: unless-stopped
+    command: ["run", "--server.http.listen-addr=127.0.0.1:12345", "--storage.path=/var/lib/alloy/data", "/etc/alloy/config.alloy"]
+    env_file: [/opt/aprova/secrets/alloy.env]
+    volumes:
+      - ./observability/config.alloy:/etc/alloy/config.alloy:ro
+      # Descoberta dos contêineres e leitura dos logs. O socket dá acesso à API do Docker (poder de root):
+      # por isso a imagem fica fixada, sem portas publicadas e sem outro uso.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy_data:/var/lib/alloy/data
+    deploy: { resources: { limits: { memory: 384M } } }
+    logging: { driver: json-file, options: { max-size: 10m, max-file: "3" } }
+    networks: [data, egress]
+
+  node-exporter:
+    image: prom/node-exporter:v1.12.1
+    restart: unless-stopped
+    pid: host
+    command:
+      - --path.rootfs=/host
+      - --collector.textfile.directory=/textfile
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker/.+)($$|/)
+    volumes:
+      - /:/host:ro,rslave
+      # Métrica de idade do último backup, escrita por infra/scripts/backup.sh.
+      - /opt/aprova/backups/metrics:/textfile:ro
+    deploy: { resources: { limits: { memory: 64M } } }
+    networks: [data]
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.96.0-alpine
+    restart: unless-stopped
+    secrets: [redis_password]
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    entrypoint: ["sh", "-c", "REDIS_PASSWORD=\"$$(cat /run/secrets/redis_password)\" exec /redis_exporter"]
+    deploy: { resources: { limits: { memory: 64M } } }
+    depends_on: { redis: { condition: service_healthy } }
+    networks: [data]
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.20.1
+    restart: unless-stopped
+    secrets: [postgres_monitor_password]
+    environment:
+      DATA_SOURCE_URI: postgres:5432/aprovaai?sslmode=disable
+      DATA_SOURCE_USER: aprova_monitor
+      DATA_SOURCE_PASS_FILE: /run/secrets/postgres_monitor_password
+    deploy: { resources: { limits: { memory: 64M } } }
+    depends_on: { postgres: { condition: service_healthy } }
+    networks: [data]
+
 networks:
   web: {}
   # Sem acesso à internet e sem portas publicadas: só a API e os processos de fundo chegam ao banco e ao Redis.
@@ -119,7 +174,9 @@ volumes:
   caddy_config: {}
   pg_data: {}
   redis_data: {}
+  alloy_data: {}
 
 secrets:
   postgres_password: { file: /opt/aprova/secrets/postgres_password }
   redis_password: { file: /opt/aprova/secrets/redis_password }
+  postgres_monitor_password: { file: /opt/aprova/secrets/postgres_monitor_password }
