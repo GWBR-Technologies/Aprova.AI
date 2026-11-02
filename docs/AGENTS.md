@@ -32,7 +32,7 @@ Altere apenas os arquivos necessários. Não refatore, reformate ou remova códi
 
 ## Convenções de Código
 
-- Coloque cada código na camada definida em `docs/ARQUITETURA.md` (§10): composição em `src/app/`, contextos em `src/features/`, infraestrutura do cliente em `src/core/`, UI compartilhada em `src/components/`, hooks em `src/hooks/`, tokens em `src/constants/theme.ts`, contratos em `contracts/` e backend em `backend/src/`. Subpastas e arquivos nascem junto do primeiro uso real.
+- Coloque cada código na camada definida em `docs/ARQUITETURA.md` (§10): composição em `src/app/`, contextos em `src/features/`, infraestrutura do cliente em `src/core/`, UI compartilhada em `src/components/`, hooks em `src/hooks/`, tokens em `src/constants/theme.ts`, contratos em `contracts/`, backend em `backend/src/`, implantação em `infra/` e fluxos de CI/CD em `.github/workflows/` (só configuração e scripts, nunca segredos). Subpastas e arquivos nascem junto do primeiro uso real.
 - Respeite as regras de importação entre camadas descritas no `README.md` de cada camada. Contextos de `src/features/` não importam uns aos outros.
 - O ponto de entrada é `expo-router/entry` (`main` do `package.json`). `src/app/` contém somente rotas finas e o layout raiz com os providers; as telas ficam em `src/features/<contexto>/ui` (`docs/ARQUITETURA.md`, §10.4).
 - Preserve arquivos específicos de plataforma, como `*.web.tsx`.

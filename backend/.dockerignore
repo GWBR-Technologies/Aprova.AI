@@ -1,0 +1,10 @@
+node_modules
+**/*.test.ts
+**/*.spec.ts
+.env
+.env.*
+*.env
+!*.env.example
+**/*.md
+Dockerfile
+.dockerignore

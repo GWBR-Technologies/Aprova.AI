@@ -1,0 +1,185 @@
+name: aprovaai
+
+# IMAGE_TAG fixa um commit específico no rollback (docs/IMPLEMENTACAO-DEVOPS.md, §11.4);
+# sem ele, o servidor persegue a etiqueta "production".
+x-app: &app
+  image: ghcr.io/gwbr-technologies/aprovaai-backend:${IMAGE_TAG:-production}
+  restart: unless-stopped
+  # Encaminha SIGTERM ao Node como PID 1, para o encerramento ordenado dos Workers.
+  init: true
+  # O rótulo do serviço entra em cada linha de log (attrs), que o Alloy usa para identificar o contêiner.
+  logging: { driver: json-file, options: { max-size: 10m, max-file: "5", labels: com.docker.compose.service } }
+
+services:
+  caddy:
+    image: caddy:2.11
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "443:443/udp"]
+    env_file: [/opt/aprova/secrets/caddy.env]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    deploy: { resources: { limits: { memory: 128M } } }
+    depends_on: { api: { condition: service_healthy } }
+    networks: [web]
+
+  api:
+    <<: *app
+    command: ["node", "src/bootstrap/api.ts"]
+    env_file: [/opt/aprova/secrets/common.env, /opt/aprova/secrets/api.env]
+    deploy: { resources: { limits: { memory: 512M } } }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    networks: [web, data]
+
+  worker:
+    <<: *app
+    command: ["node", "src/bootstrap/worker.ts"]
+    env_file: [/opt/aprova/secrets/common.env, /opt/aprova/secrets/worker.env]
+    # Maior que o tempo limite de um job da IA (AI_TIMEOUT_MS), para o worker.close() terminar o job em andamento.
+    stop_grace_period: 150s
+    deploy: { resources: { limits: { memory: 1G } } }
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    networks: [data, egress]
+
+  relay:
+    <<: *app
+    command: ["node", "src/bootstrap/relay.ts"]
+    env_file: [/opt/aprova/secrets/common.env, /opt/aprova/secrets/relay.env]
+    deploy: { resources: { limits: { memory: 256M } } }
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    # A saída para a internet permite ao relay reportar erros ao Sentry (§3.1 do guia: Workers e relay têm saída).
+    networks: [data, egress]
+
+  migrate:
+    <<: *app
+    restart: "no"
+    command: ["node", "src/bootstrap/migrate.ts"]
+    env_file: [/opt/aprova/secrets/common.env, /opt/aprova/secrets/migrate.env]
+    depends_on: { postgres: { condition: service_healthy } }
+    networks: [data]
+
+  postgres:
+    image: postgres:18.6
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: aprovaai
+      POSTGRES_USER: aprova_admin
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      TZ: UTC
+      PGTZ: UTC
+    secrets: [postgres_password]
+    # A imagem do PostgreSQL 18 mudou o layout do diretório de dados: o volume é montado em /var/lib/postgresql.
+    volumes: [pg_data:/var/lib/postgresql]
+    command: ["postgres", "-c", "shared_buffers=1GB", "-c", "effective_cache_size=4GB",
+              "-c", "max_connections=100", "-c", "work_mem=16MB", "-c", "timezone=UTC"]
+    deploy: { resources: { limits: { memory: 3G } } }
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aprova_admin -d aprovaai"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [data]
+
+  # BullMQ exige AOF e noeviction (docs/IMPLEMENTACAO-DEVOPS.md, §7.1). A senha vem de arquivo de segredo.
+  redis:
+    image: redis:8.2
+    restart: unless-stopped
+    secrets: [redis_password]
+    # Com `sh -c` o entrypoint da imagem não troca de usuário; sem isto o servidor rodaria como root.
+    user: redis
+    command: ["sh", "-c", "exec redis-server --appendonly yes --appendfsync everysec --maxmemory 512mb --maxmemory-policy noeviction --requirepass \"$$(cat /run/secrets/redis_password)\""]
+    volumes: [redis_data:/data]
+    deploy: { resources: { limits: { memory: 1G } } }
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$$(cat /run/secrets/redis_password)\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [data]
+
+  # Observabilidade (docs/IMPLEMENTACAO-DEVOPS.md, §13): o Alloy raspa as métricas internas e lê os logs
+  # dos contêineres e envia ao Grafana Cloud. Exportadores ficam só na rede interna, sem portas publicadas.
+  alloy:
+    image: grafana/alloy:v1.21.3
+    restart: unless-stopped
+    command: ["run", "--server.http.listen-addr=127.0.0.1:12345", "--storage.path=/var/lib/alloy/data", "/etc/alloy/config.alloy"]
+    env_file: [/opt/aprova/secrets/alloy.env]
+    volumes:
+      - ./observability/config.alloy:/etc/alloy/config.alloy:ro
+      # Logs lidos dos arquivos do Docker, somente leitura. O socket do Docker não é montado: com ele o Alloy
+      # (que tem saída para a internet) leria o ambiente, e portanto os segredos, de todos os contêineres.
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - alloy_data:/var/lib/alloy/data
+    deploy: { resources: { limits: { memory: 384M } } }
+    logging: { driver: json-file, options: { max-size: 10m, max-file: "3", labels: com.docker.compose.service } }
+    networks: [data, egress]
+
+  node-exporter:
+    image: prom/node-exporter:v1.12.1
+    restart: unless-stopped
+    pid: host
+    command:
+      - --path.rootfs=/host
+      - --collector.textfile.directory=/textfile
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker/.+)($$|/)
+    volumes:
+      - /:/host:ro,rslave
+      # Métrica de idade do último backup, escrita por infra/scripts/backup.sh.
+      - /opt/aprova/backups/metrics:/textfile:ro
+    deploy: { resources: { limits: { memory: 64M } } }
+    networks: [data]
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.96.0-alpine
+    restart: unless-stopped
+    secrets: [redis_password]
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    entrypoint: ["sh", "-c", "REDIS_PASSWORD=\"$$(cat /run/secrets/redis_password)\" exec /redis_exporter"]
+    deploy: { resources: { limits: { memory: 64M } } }
+    depends_on: { redis: { condition: service_healthy } }
+    networks: [data]
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.20.1
+    restart: unless-stopped
+    secrets: [postgres_monitor_password]
+    environment:
+      DATA_SOURCE_URI: postgres:5432/aprovaai?sslmode=disable
+      DATA_SOURCE_USER: aprova_monitor
+      DATA_SOURCE_PASS_FILE: /run/secrets/postgres_monitor_password
+    deploy: { resources: { limits: { memory: 64M } } }
+    depends_on: { postgres: { condition: service_healthy } }
+    networks: [data]
+
+networks:
+  web: {}
+  # Sem acesso à internet e sem portas publicadas: só a API e os processos de fundo chegam ao banco e ao Redis.
+  data: { internal: true }
+  egress: {}
+
+volumes:
+  caddy_data: {}
+  caddy_config: {}
+  pg_data: {}
+  redis_data: {}
+  alloy_data: {}
+
+secrets:
+  postgres_password: { file: /opt/aprova/secrets/postgres_password }
+  redis_password: { file: /opt/aprova/secrets/redis_password }
+  postgres_monitor_password: { file: /opt/aprova/secrets/postgres_monitor_password }

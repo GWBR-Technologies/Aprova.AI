@@ -1,0 +1,67 @@
+name: ci
+
+# Somente o evento pull_request (nunca pull_request_target): PRs de forks não recebem segredos.
+on:
+  pull_request:
+  push:
+    branches: [development, master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Só PRs cancelam execuções antigas: um push em master cancelado deixaria o commit sem checks verdes e impediria promovê-lo.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    # O package-lock.json do app é gerado com legacy-peer-deps (sem os peers opcionais do Expo, como react-dom).
+    # Sem a opção, o npm ci em Linux tenta instalá-los e conflita com o React fixado (ERESOLVE).
+    env:
+      NPM_CONFIG_LEGACY_PEER_DEPS: "true"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: backend } }
+    services:
+      postgres:
+        image: postgres:18
+        env: { POSTGRES_PASSWORD: ci-only, POSTGRES_DB: aprovaai_test }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:8.2
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    # ci-only é a senha de um contêiner descartável de teste; não é segredo. Os testes de integração recriam os
+    # esquemas e esvaziam o Redis, por isso só rodam contra estas instâncias descartáveis (sem as variáveis, são pulados).
+    env:
+      TEST_DATABASE_URL: postgres://postgres:ci-only@localhost:5432/aprovaai_test
+      TEST_REDIS_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test

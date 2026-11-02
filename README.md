@@ -65,6 +65,8 @@ scripts próprios, e os contratos entre os dois estão em `contracts/`. O estado
 de cada marco e o que continua bloqueado estão no §21 de
 [`docs/IMPLEMENTACAO-BACKEND.md`](docs/IMPLEMENTACAO-BACKEND.md) e no §18 de
 [`docs/IMPLEMENTACAO-FRONTEND.md`](docs/IMPLEMENTACAO-FRONTEND.md).
+A camada de DevOps (`infra/`, `.github/`, `backend/Dockerfile` e `eas.json`) está descrita em
+[`docs/IMPLEMENTACAO-DEVOPS.md`](docs/IMPLEMENTACAO-DEVOPS.md) e em [`infra/README.md`](infra/README.md).
 
 | Arquivo ou diretório | Responsabilidade |
 | --- | --- |
@@ -75,6 +77,9 @@ de cada marco e o que continua bloqueado estão no §21 de
 | `src/core/` | Infraestrutura do cliente: HTTP, outbox local, persistência e eventos |
 | `contracts/` | Contrato entre app e backend: comandos, consultas e eventos |
 | `backend/src/` | API de comandos e consultas e Workers (domínio, aplicação, infraestrutura) |
+| `infra/` | Implantação: Docker Compose, Caddyfile, scripts, temporizadores e observabilidade |
+| `.github/` | Integração e entrega contínuas (fluxos do GitHub Actions) e Dependabot |
+| `eas.json` | Perfis do EAS Build |
 | `assets/` | Ícones e imagens do aplicativo |
 | `app.json` | Nome, orientação e configuração das plataformas |
 | `tsconfig.json` | Configuração do TypeScript, estendendo a base do Expo |
@@ -175,6 +180,9 @@ O login nativo, o SQLite e o push exigem um build de desenvolvimento
 Aprova.AI/
 ├── .agents/
 │   └── skills/          # Workflows de desenvolvimento para Codex
+├── .github/
+│   ├── workflows/       # ci, backend-image, promote-production, mobile-build
+│   └── dependabot.yml   # Atualizações de dependências, actions e imagens
 ├── .claude/
 │   ├── agents/          # Instruções de revisão e auditoria
 │   ├── commands/        # Fluxos de revisão e correção de defeitos
@@ -183,11 +191,13 @@ Aprova.AI/
 │   └── skills/          # Fluxos de interface e prontidão local
 ├── assets/              # Ícones e imagens
 ├── backend/             # API, relay e Workers (package.json e scripts próprios)
+│   ├── Dockerfile       # Imagem de produção do backend
 │   ├── migrations/      # SQL versionado (drizzle-kit)
 │   ├── src/             # domain, application, infrastructure, api, workers, bootstrap
 │   └── test/            # Vitest: unitários, API e integração
 ├── contracts/           # Contrato app <-> backend (comandos, consultas, eventos, auth)
 ├── docs/                # Arquitetura, guias de implementação (.md e .pdf), guias e design
+├── infra/               # Compose, Caddyfile, scripts, systemd e observabilidade (ver infra/README.md)
 ├── src/
 │   ├── app/             # Rotas do Expo Router e layout raiz (providers)
 │   ├── components/      # UI compartilhada
@@ -197,6 +207,7 @@ Aprova.AI/
 │   └── hooks/           # Hooks e formatadores compartilhados
 ├── .env.example         # Variáveis públicas esperadas pelo app
 ├── app.json             # Configuração do Expo
+├── eas.json             # Perfis do EAS Build
 ├── package.json         # Dependências e scripts
 ├── package-lock.json    # Versões resolvidas das dependências
 ├── tsconfig.json        # Configuração do TypeScript
@@ -236,6 +247,9 @@ Aprova.AI/
 - **Arquitetura:** o backend está implementado até o marco B4 e o app usa os
   contratos de `contracts/`. As decisões em aberto estão em
   `docs/ARQUITETURA.md` (seção 14).
+- **DevOps:** a camada está implementada (`infra/`, `.github/`, `backend/Dockerfile` e `eas.json`), mas
+  nenhuma VM foi provisionada e nada foi executado fora do ambiente de desenvolvimento. Estado por
+  marco e desvios em `docs/IMPLEMENTACAO-DEVOPS.md` (seção 21).
 - **Design:** identidade registrada em `docs/DESIGN.md`. Poppins e Inter ainda
   não foram instaladas (dependência não aprovada); o app usa a fonte do sistema.
 

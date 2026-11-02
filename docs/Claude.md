@@ -4,7 +4,7 @@
 
 `Aprova.AI` é um aplicativo para Android e iOS feito com Expo 57, React Native, React 19 e TypeScript estrito, para estudo para o Enem, a Fuvest e outros vestibulares brasileiros, com apoio e correção por IA (GPT 6.1 - Terra). A arquitetura é EDA + CQRS com BullMQ + Redis e Workers em segundo plano; a fonte de verdade é `docs/ARQUITETURA.md`.
 
-O código do app fica em `src/` (composição em `src/app/`, contextos em `src/features/`, infraestrutura do cliente em `src/core/`), os contratos compartilhados em `contracts/` e a API com os Workers em `backend/src/`. O ponto de entrada é `expo-router/entry` (`main` do `package.json`).
+O código do app fica em `src/` (composição em `src/app/`, contextos em `src/features/`, infraestrutura do cliente em `src/core/`), os contratos compartilhados em `contracts/` a API com os Workers em `backend/src/` e a implantação em `infra/` e `.github/` (só configuração e scripts, nunca segredos). O ponto de entrada é `expo-router/entry` (`main` do `package.json`).
 
 O app já tem navegação (Expo Router), cliente HTTP, sessão, outbox local em SQLite, redação com plano Premium e cota, aviso por push e a identidade visual (`docs/DESIGN.md`). Ainda não há telas de questões, rotina, simulados e desempenho (faltam os contratos do produto, `docs/IMPLEMENTACAO-FRONTEND.md` §17). O backend em `backend/` está implementado até o marco B4 (estado no §21 de `docs/IMPLEMENTACAO-BACKEND.md`). A orientação é retrato (`app.json`).
 

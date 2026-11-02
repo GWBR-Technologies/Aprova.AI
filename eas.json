@@ -1,0 +1,22 @@
+{
+  "cli": { "appVersionSource": "remote" },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "environment": "development",
+      "env": { "NPM_CONFIG_LEGACY_PEER_DEPS": "true" }
+    },
+    "preview": {
+      "distribution": "internal",
+      "environment": "preview",
+      "env": { "NPM_CONFIG_LEGACY_PEER_DEPS": "true" }
+    },
+    "production": {
+      "autoIncrement": true,
+      "environment": "production",
+      "env": { "NPM_CONFIG_LEGACY_PEER_DEPS": "true" }
+    }
+  },
+  "submit": { "production": {} }
+}

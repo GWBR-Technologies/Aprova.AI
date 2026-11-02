@@ -1,0 +1,38 @@
+# O domínio e o e-mail do certificado vêm de /opt/aprova/secrets/caddy.env (API_DOMAIN e ACME_EMAIL),
+# para que nada específico da empresa fique no repositório público.
+# ACME_CA aponta para o ambiente de testes da Let's Encrypt enquanto a emissão estiver sendo depurada;
+# sem a variável, vale a CA de produção (R7 do guia de DevOps).
+{
+	email {$ACME_EMAIL}
+	acme_ca {$ACME_CA:https://acme-v02.api.letsencrypt.org/directory}
+}
+
+{$API_DOMAIN} {
+	encode zstd gzip
+
+	# Ajustar ao limite de texto da redação e ao bodyLimit da API (definidos com o produto).
+	request_body {
+		max_size 512KB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	# As métricas ficam numa porta interna (METRICS_PORT) e nunca saem pelo proxy.
+	handle /metrics* {
+		respond 404
+	}
+
+	handle {
+		reverse_proxy api:3000 {
+			health_uri /healthz
+		}
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

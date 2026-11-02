@@ -1,0 +1,16 @@
+[Unit]
+Description=Aprova.AI: backup criptografado do PostgreSQL
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=deploy
+Group=deploy
+SupplementaryGroups=docker
+WorkingDirectory=/opt/aprova/repo/infra
+# Opcional: BACKUP_RCLONE_REMOTE (destino fora da VM). O hífen torna o arquivo opcional.
+EnvironmentFile=-/opt/aprova/secrets/backup.env
+ExecStart=/opt/aprova/repo/infra/scripts/backup.sh
+TimeoutStartSec=1800
+NoNewPrivileges=true

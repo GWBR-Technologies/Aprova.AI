@@ -1,0 +1,55 @@
+name: mobile-build
+
+# O plano gratuito do EAS Build tem 15 builds Android e 15 iOS por mês (docs/IMPLEMENTACAO-DEVOPS.md, §12.1),
+# por isso não há build a cada push: só manual ou ao criar uma etiqueta de versão (v*).
+# Etiqueta v*: candidato a versão (perfil preview, Android e iOS). Manual: perfil e plataforma à escolha.
+# O envio às lojas (eas submit) é manual, com as credenciais guardadas no EAS.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Perfil do eas.json
+        required: true
+        type: choice
+        options: [preview, production, development]
+        default: preview
+      platform:
+        description: Plataforma
+        required: true
+        type: choice
+        options: [android, ios, all]
+        default: android
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # O EXPO_TOKEN fica como segredo deste ambiente, restrito a master e a etiquetas v* (Settings > Environments).
+    environment: mobile
+    env:
+      # Mesma opção do job app do ci: o lockfile do app é gerado com legacy-peer-deps.
+      NPM_CONFIG_LEGACY_PEER_DEPS: "true"
+      PROFILE: ${{ inputs.profile || 'preview' }}
+      PLATFORM: ${{ inputs.platform || 'all' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      # EXPO_TOKEN vem dos segredos do GitHub (token do EAS); nunca entra no repositório.
+      - uses: expo/expo-github-action@9da89d3617bb88139671bad31b09c65714c2ee06 # v9.0.1
+        with:
+          eas-version: 24.14.0
+          token: ${{ secrets.EXPO_TOKEN }}
+      # --no-wait enfileira o build no EAS e libera o executor, que não precisa esperar a fila de baixa prioridade.
+      - name: Enfileirar o build
+        run: eas build --platform "$PLATFORM" --profile "$PROFILE" --non-interactive --no-wait

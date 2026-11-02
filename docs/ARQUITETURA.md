@@ -298,7 +298,7 @@ A consulta vai direto à API de consultas e lê o read store. Não passa por com
 Aprova.AI/
 ├── (sem index.ts)              # A entrada é `expo-router/entry`, declarada em `main` no package.json
 ├── app.json
-├── eas.json                    # Perfis do EAS Build (nasce quando o primeiro build for configurado)
+├── eas.json                    # Perfis do EAS Build
 ├── package.json
 ├── tsconfig.json
 ├── assets/                     # Ícones e imagens
@@ -336,8 +336,8 @@ Aprova.AI/
 │       ├── api/                # HTTP: rotas de comando e rotas de consulta, separadas
 │       ├── workers/            # Um processador BullMQ por fila
 │       └── bootstrap/          # Composition roots: api.ts e worker.ts
-├── infra/                      # Implantação: Docker Compose, Caddyfile e scripts (nasce no primeiro uso)
-├── .github/workflows/          # Integração e entrega contínuas (nasce no primeiro uso)
+├── infra/                      # Implantação: Docker Compose, Caddyfile, scripts e observabilidade
+├── .github/workflows/          # Integração e entrega contínuas
 ├── docs/                       # Documentação (ARQUITETURA, guias de implementação, design)
 ├── .claude/ e .agents/         # Regras e workflows para assistência ao desenvolvimento
 └── README.md
@@ -353,7 +353,7 @@ Para não criar pastas vazias nem abstrações sem uso, o repositório contém h
 | --- | --- |
 | `src/app/`, `src/components/`, `src/hooks/`, `src/constants/theme.ts` | Subpastas de `src/features/` e `src/core/` conforme o primeiro uso |
 | `contracts/`, `src/features/`, `src/core/` (README) | Subpastas de `contracts/`, de `src/core/` e de cada contexto |
-| `backend/` com `package.json`, migrações, testes e o código de todas as camadas (marcos B0 a B4; estado em `docs/IMPLEMENTACAO-BACKEND.md`, §21); `contracts/commands`, `queries`, `events` e `auth` | `backend/src/workers/mock-exam-processing` e `notifications`, `infra/`, `.github/workflows/`, `eas.json` |
+| `backend/` com `package.json`, migrações, testes e o código de todas as camadas (marcos B0 a B4; estado em `docs/IMPLEMENTACAO-BACKEND.md`, §21); `contracts/commands`, `queries`, `events` e `auth`; `backend/Dockerfile`, `infra/`, `.github/workflows/`, `eas.json` | `backend/src/workers/mock-exam-processing` e `notifications` |
 
 ### 10.3 Regras de dependência
 

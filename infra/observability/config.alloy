@@ -1,0 +1,106 @@
+// Grafana Alloy: raspa as métricas internas e lê os logs dos contêineres do projeto aprovaai.
+// Nenhum token fica neste arquivo: URLs, usuários e o token vêm de /opt/aprova/secrets/alloy.env
+// (infra/env/alloy.env.example). Os valores são os do assistente de integração do Grafana Cloud.
+
+// ---------- Métricas ----------
+
+prometheus.remote_write "grafana_cloud" {
+  external_labels = {
+    env = "production",
+  }
+
+  endpoint {
+    url = sys.env("GRAFANA_METRICS_URL")
+
+    basic_auth {
+      username = sys.env("GRAFANA_METRICS_USER")
+      password = sys.env("GRAFANA_CLOUD_TOKEN")
+    }
+  }
+}
+
+// Rede de segurança contra a explosão de séries (plano gratuito: 10 mil séries): identificadores de
+// usuário, comando ou redação jamais viram rótulo de métrica.
+prometheus.relabel "guard_cardinality" {
+  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+
+  rule {
+    action = "labeldrop"
+    regex  = "(?i)(user_?id|command_?id|essay_?id|correlation_?id)"
+  }
+}
+
+// API, Workers e relay expõem as métricas em METRICS_PORT, só na rede interna do Compose. As séries já
+// carregam o rótulo service (api, worker ou relay), por isso os alvos não o repetem.
+prometheus.scrape "app" {
+  targets = [
+    {"__address__" = "api:" + sys.env("METRICS_PORT")},
+    {"__address__" = "worker:" + sys.env("METRICS_PORT")},
+    {"__address__" = "relay:" + sys.env("METRICS_PORT")},
+  ]
+  job_name        = "aprova-app"
+  scrape_interval = "30s"
+  forward_to      = [prometheus.relabel.guard_cardinality.receiver]
+}
+
+prometheus.scrape "host_redis_postgres" {
+  targets = [
+    {"__address__" = "node-exporter:9100", "service" = "host"},
+    {"__address__" = "redis-exporter:9121", "service" = "redis"},
+    {"__address__" = "postgres-exporter:9187", "service" = "postgres"},
+  ]
+  job_name        = "aprova-infra"
+  scrape_interval = "30s"
+  forward_to      = [prometheus.relabel.guard_cardinality.receiver]
+}
+
+// ---------- Logs ----------
+
+// Lê os arquivos de log do driver json-file (somente leitura); não usa o socket do Docker. Cada linha traz,
+// em attrs, o rótulo com.docker.compose.service configurado no Compose e no daemon.json.
+local.file_match "containers" {
+  path_targets = [{"__path__" = "/var/lib/docker/containers/*/*-json.log"}]
+}
+
+loki.source.file "containers" {
+  targets    = local.file_match.containers.targets
+  forward_to = [loki.process.docker_json.receiver]
+}
+
+loki.process "docker_json" {
+  forward_to = [loki.write.grafana_cloud.receiver]
+
+  stage.json {
+    expressions = {
+      output  = "log",
+      service = "attrs.\"com.docker.compose.service\"",
+    }
+  }
+
+  stage.labels {
+    values = {
+      service = "",
+    }
+  }
+
+  stage.static_labels {
+    values = {
+      env = "production",
+    }
+  }
+
+  stage.output {
+    source = "output"
+  }
+}
+
+loki.write "grafana_cloud" {
+  endpoint {
+    url = sys.env("GRAFANA_LOGS_URL")
+
+    basic_auth {
+      username = sys.env("GRAFANA_LOGS_USER")
+      password = sys.env("GRAFANA_CLOUD_TOKEN")
+    }
+  }
+}

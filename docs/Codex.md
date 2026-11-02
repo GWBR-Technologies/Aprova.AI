@@ -5,7 +5,7 @@ As instruções operacionais compartilhadas estão em `docs/AGENTS.md`, o único
 ## Contexto Aplicado
 
 - Aplicativo Expo 57 com React Native, React 19 e TypeScript estrito, para estudo para o Enem, a Fuvest e outros vestibulares, com apoio e correção por IA (GPT 6.1 - Terra).
-- Arquitetura EDA + CQRS com BullMQ + Redis e Workers em segundo plano; camadas em `src/` (app), `contracts/` e `backend/src/`.
+- Arquitetura EDA + CQRS com BullMQ + Redis e Workers em segundo plano; camadas em `src/` (app), `contracts/` e `backend/src/`; implantação em `infra/` e `.github/`.
 - Ponto de entrada `expo-router/entry`; `src/app/` só com rotas e layout raiz.
 - App com navegação, rede, outbox, autenticação, redação e push, sem telas de questões, rotina, simulados e desempenho (faltam contratos do produto); backend em `backend/` implementado até o marco B4 e contratos em `contracts/`.
 

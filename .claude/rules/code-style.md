@@ -16,7 +16,7 @@ paths:
 
 ## React Native and Layers
 
-- Keep code in the layers defined by `docs/ARQUITETURA.md` (§10): composition in `src/app/`, contexts in `src/features/`, client infrastructure in `src/core/`, shared UI in `src/components/`, hooks in `src/hooks/`, theme tokens in `src/constants/theme.ts`, shared contracts in `contracts/`, and the backend in `backend/src/`. Subfolders and files appear with their first real use.
+- Keep code in the layers defined by `docs/ARQUITETURA.md` (§10): composition in `src/app/`, contexts in `src/features/`, client infrastructure in `src/core/`, shared UI in `src/components/`, hooks in `src/hooks/`, theme tokens in `src/constants/theme.ts`, shared contracts in `contracts/`, the backend in `backend/src/`, and deployment in `infra/` and `.github/workflows/` (configuration and scripts only, never secrets). Subfolders and files appear with their first real use.
 - Respect the import rules in each layer's `README.md`; a feature never imports another feature.
 - The entry point is `expo-router/entry`. `src/app/` holds only thin routes and the root layout (providers); screens live in `src/features/<context>/ui` (`docs/ARQUITETURA.md`, §10.4). Preserve existing `.web.tsx` platform overrides.
 - Use React Native primitives and `StyleSheet` for shared mobile UI. Keep browser-specific CSS in web-specific files.
