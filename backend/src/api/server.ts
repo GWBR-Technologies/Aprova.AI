@@ -5,14 +5,21 @@ import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 
 import type { makeSubmitEssayHandler } from '../application/commands/submit-essay.handler.ts';
-import type { makeGetEntitlementsHandler } from '../application/queries/get-entitlements.handler.ts';
 import { Unauthenticated } from '../application/errors.ts';
+import type { makeGetEntitlementsHandler } from '../application/queries/get-entitlements.handler.ts';
+import type { makeGetEssayHandler } from '../application/queries/get-essay.handler.ts';
+import type { makeGetMockExamHistoryHandler } from '../application/queries/get-mock-exam-history.handler.ts';
+import type { makeGetMockExamResultHandler } from '../application/queries/get-mock-exam-result.handler.ts';
+import type { makeGetPerformanceSummaryHandler } from '../application/queries/get-performance-summary.handler.ts';
 import { registerErrorHandler } from './errors.ts';
 import { type AuthHandlers, registerAuthRoutes } from './routes/auth.routes.ts';
 import { registerEssayCommands } from './routes/commands/essay.commands.ts';
 import { registerStudyCommands, type StudyCommandHandlers } from './routes/commands/study.commands.ts';
 import { registerHealthRoutes } from './routes/health.routes.ts';
 import { registerEntitlementsRoutes } from './routes/queries/entitlements.routes.ts';
+import { registerEssayRoutes } from './routes/queries/essays.routes.ts';
+import { registerMockExamRoutes } from './routes/queries/mock-exams.routes.ts';
+import { registerPerformanceRoutes } from './routes/queries/performance.routes.ts';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -33,6 +40,10 @@ export type ApiDeps = {
   commands: StudyCommandHandlers & { submitEssay: ReturnType<typeof makeSubmitEssayHandler> };
   queries: {
     getEntitlements: ReturnType<typeof makeGetEntitlementsHandler>;
+    getEssay: ReturnType<typeof makeGetEssayHandler>;
+    getPerformanceSummary: ReturnType<typeof makeGetPerformanceSummaryHandler>;
+    getMockExamHistory: ReturnType<typeof makeGetMockExamHistoryHandler>;
+    getMockExamResult: ReturnType<typeof makeGetMockExamResultHandler>;
   };
 };
 
@@ -80,6 +91,9 @@ export async function buildServer(deps: ApiDeps): Promise<FastifyInstance> {
       registerStudyCommands(scope, deps.commands);
       registerEssayCommands(scope, deps.commands.submitEssay, deps.essayMaxChars);
       registerEntitlementsRoutes(scope, deps.queries.getEntitlements);
+      registerEssayRoutes(scope, deps.queries.getEssay);
+      registerPerformanceRoutes(scope, deps.queries.getPerformanceSummary);
+      registerMockExamRoutes(scope, deps.queries);
     },
     { prefix: '/v1' },
   );
