@@ -1,4 +1,4 @@
-import type { EssayStatus } from '@contracts/queries/get-essay.query.ts';
+import type { EssayFailureCode, EssayStatus } from '@contracts/queries/get-essay.query.ts';
 import type { MockExamStatus } from '@contracts/queries/get-mock-exam-result.query.ts';
 
 export type EssayViewRow = {
@@ -6,7 +6,7 @@ export type EssayViewRow = {
   userId: string;
   status: EssayStatus;
   result: Record<string, unknown> | null;
-  failureCode: string | null;
+  failureCode: EssayFailureCode | null;
   aggregateVersion: number;
   createdAt: Date;
   asOf: Date;

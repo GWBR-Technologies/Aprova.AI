@@ -20,7 +20,7 @@ import type { OutboxMessage } from '../../application/messages.ts';
 import type { IdentityProvider } from '@contracts/auth/auth.ts';
 import type { CommandAccepted } from '@contracts/commands/command-envelope.ts';
 import type { Plan } from '@contracts/queries/get-entitlements.query.ts';
-import type { EssayStatus } from '@contracts/queries/get-essay.query.ts';
+import type { EssayFailureCode, EssayStatus } from '@contracts/queries/get-essay.query.ts';
 import type { MockExamStatus } from '@contracts/queries/get-mock-exam-result.query.ts';
 
 // Espelha o SQL do §5 do guia de implementação do back-end; mudanças entram por nova migração.
@@ -99,7 +99,7 @@ export const essays = write.table(
     result: jsonb('result').$type<Record<string, unknown>>(),
     promptVersion: text('prompt_version'),
     model: text('model'),
-    failureCode: text('failure_code'),
+    failureCode: text('failure_code').$type<EssayFailureCode>(),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
     updatedAt: timestamptz('updated_at').notNull().defaultNow(),
   },
@@ -200,7 +200,7 @@ export const essayView = read.table(
     userId: uuid('user_id').notNull(),
     status: text('status').$type<EssayStatus>().notNull(),
     result: jsonb('result').$type<Record<string, unknown>>(),
-    failureCode: text('failure_code'),
+    failureCode: text('failure_code').$type<EssayFailureCode>(),
     aggregateVersion: integer('aggregate_version').notNull(),
     createdAt: timestamptz('created_at').notNull(),
     asOf: timestamptz('as_of').notNull(),

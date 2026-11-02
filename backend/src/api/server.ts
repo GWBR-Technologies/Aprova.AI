@@ -4,10 +4,12 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 
+import type { makeSubmitEssayHandler } from '../application/commands/submit-essay.handler.ts';
 import type { makeGetEntitlementsHandler } from '../application/queries/get-entitlements.handler.ts';
 import { Unauthenticated } from '../application/errors.ts';
 import { registerErrorHandler } from './errors.ts';
 import { type AuthHandlers, registerAuthRoutes } from './routes/auth.routes.ts';
+import { registerEssayCommands } from './routes/commands/essay.commands.ts';
 import { registerStudyCommands, type StudyCommandHandlers } from './routes/commands/study.commands.ts';
 import { registerHealthRoutes } from './routes/health.routes.ts';
 import { registerEntitlementsRoutes } from './routes/queries/entitlements.routes.ts';
@@ -24,10 +26,11 @@ declare module 'fastify' {
 export type ApiDeps = {
   logger: FastifyBaseLogger;
   bodyLimitBytes: number;
+  essayMaxChars: number;
   verifyAccessToken: (token: string) => Promise<string | null>;
   ready: () => Promise<boolean>;
   auth: AuthHandlers;
-  commands: StudyCommandHandlers;
+  commands: StudyCommandHandlers & { submitEssay: ReturnType<typeof makeSubmitEssayHandler> };
   queries: {
     getEntitlements: ReturnType<typeof makeGetEntitlementsHandler>;
   };
@@ -75,6 +78,7 @@ export async function buildServer(deps: ApiDeps): Promise<FastifyInstance> {
         request.userId = userId;
       });
       registerStudyCommands(scope, deps.commands);
+      registerEssayCommands(scope, deps.commands.submitEssay, deps.essayMaxChars);
       registerEntitlementsRoutes(scope, deps.queries.getEntitlements);
     },
     { prefix: '/v1' },

@@ -1,4 +1,4 @@
-import type { EssayStatus } from '@contracts/queries/get-essay.query.ts';
+import type { EssayFailureCode, EssayStatus } from '@contracts/queries/get-essay.query.ts';
 
 export type EssayRecord = {
   id: string;
@@ -8,7 +8,7 @@ export type EssayRecord = {
   quotaPeriod: string;
   version: number;
   result: Record<string, unknown> | null;
-  failureCode: string | null;
+  failureCode: EssayFailureCode | null;
   createdAt: Date;
 };
 
@@ -22,7 +22,7 @@ export interface EssayRepository {
     outcome: { result: Record<string, unknown>; promptVersion: string; model: string },
     at: Date,
   ): Promise<EssayRecord | null>;
-  fail(id: string, failureCode: string, at: Date): Promise<EssayRecord | null>;
+  fail(id: string, failureCode: EssayFailureCode, at: Date): Promise<EssayRecord | null>;
 }
 
 export interface EssayQuotaRepository {

@@ -7,22 +7,25 @@ import { buildServer, type ApiDeps } from '../../src/api/server.ts';
 import { makeAnswerQuestionHandler } from '../../src/application/commands/answer-question.handler.ts';
 import { makeCompleteMockExamHandler } from '../../src/application/commands/complete-mock-exam.handler.ts';
 import { makeRecordRoutineProgressHandler } from '../../src/application/commands/record-routine-progress.handler.ts';
+import { makeSubmitEssayHandler } from '../../src/application/commands/submit-essay.handler.ts';
 import { Unauthenticated } from '../../src/application/errors.ts';
+import { quotaPeriod } from '../../src/domain/essay/quota-period.ts';
 import { memoryStore } from '../support/memory-store.ts';
 
 import type { ApiError } from '@contracts/api-error.ts';
 
 const tokens = { accessToken: 'a', accessTokenExpiresAt: '2026-10-31T12:15:00.000Z', refreshToken: 'r' };
 
-function deps(overrides: Partial<ApiDeps> = {}): ApiDeps {
-  const store = memoryStore();
+function deps(overrides: Partial<ApiDeps> = {}, store = memoryStore()): ApiDeps {
   const commandDeps = { uow: store.uow, now: () => new Date(), newId: randomUUID };
   return {
     commands: {
       answerQuestion: makeAnswerQuestionHandler(commandDeps),
       recordRoutineProgress: makeRecordRoutineProgressHandler(commandDeps),
       completeMockExam: makeCompleteMockExamHandler(commandDeps),
+      submitEssay: makeSubmitEssayHandler({ ...commandDeps, monthlyLimit: 4 }),
     },
+    essayMaxChars: 50,
     logger: pino({ level: 'silent' }),
     bodyLimitBytes: 64 * 1024,
     verifyAccessToken: async (token) => (token === 'valid' ? 'user-1' : null),
@@ -182,6 +185,43 @@ describe('comandos', () => {
 
     expect(first.statusCode).toBe(202);
     expect(reused.statusCode).toBe(400);
+  });
+});
+
+describe('SubmitEssay pela API', () => {
+  const submit = (text = 'Uma redação curta.') => ({
+    commandId: randomUUID(),
+    issuedAt: '2026-10-31T12:00:00.000Z',
+    payload: { essayId: randomUUID(), text },
+  });
+
+  it('responde 403 PREMIUM_REQUIRED para quem não é Premium', async () => {
+    const app = await buildServer(deps());
+    const res = await app.inject({ method: 'POST', url: '/v1/commands/submit-essay', headers: auth, payload: submit() });
+    expect(res.statusCode).toBe(403);
+    expect(res.json<ApiError>().code).toBe('PREMIUM_REQUIRED');
+  });
+
+  it('aceita a redação do Premium e informa a cota esgotada com limit, used e resetsAt', async () => {
+    const store = memoryStore();
+    store.setPlan('user-1', 'PREMIUM');
+    store.state.quota.set(`user-1|${quotaPeriod(new Date())}`, 3);
+    const app = await buildServer(deps({}, store));
+
+    const accepted = await app.inject({ method: 'POST', url: '/v1/commands/submit-essay', headers: auth, payload: submit() });
+    expect(accepted.statusCode).toBe(202);
+
+    const rejected = await app.inject({ method: 'POST', url: '/v1/commands/submit-essay', headers: auth, payload: submit() });
+    expect(rejected.statusCode).toBe(403);
+    expect(rejected.json<ApiError>()).toMatchObject({ code: 'ESSAY_QUOTA_EXCEEDED', details: { limit: 4, used: 4 } });
+  });
+
+  it('recusa texto vazio ou acima do limite configurado', async () => {
+    const app = await buildServer(deps());
+    const empty = await app.inject({ method: 'POST', url: '/v1/commands/submit-essay', headers: auth, payload: submit('   ') });
+    const long = await app.inject({ method: 'POST', url: '/v1/commands/submit-essay', headers: auth, payload: submit('x'.repeat(51)) });
+    expect(empty.statusCode).toBe(400);
+    expect(long.statusCode).toBe(400);
   });
 });
 
