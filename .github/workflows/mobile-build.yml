@@ -32,6 +32,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # O EXPO_TOKEN fica como segredo deste ambiente, restrito a master e a etiquetas v* (Settings > Environments).
+    environment: mobile
     env:
       PROFILE: ${{ inputs.profile || 'preview' }}
       PLATFORM: ${{ inputs.platform || 'all' }}

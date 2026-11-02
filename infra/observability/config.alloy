@@ -54,31 +54,42 @@ prometheus.scrape "host_redis_postgres" {
 
 // ---------- Logs ----------
 
-discovery.docker "containers" {
-  host = "unix:///var/run/docker.sock"
+// Lê os arquivos de log do driver json-file (somente leitura); não usa o socket do Docker. Cada linha traz,
+// em attrs, o rótulo com.docker.compose.service configurado no Compose e no daemon.json.
+local.file_match "containers" {
+  path_targets = [{"__path__" = "/var/lib/docker/containers/*/*-json.log"}]
 }
 
-// Só os contêineres do projeto Compose, com o nome do serviço como rótulo.
-discovery.relabel "aprova" {
-  targets = discovery.docker.containers.targets
-
-  rule {
-    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
-    regex         = "aprovaai"
-    action        = "keep"
-  }
-
-  rule {
-    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
-    target_label  = "service"
-  }
+loki.source.file "containers" {
+  targets    = local.file_match.containers.targets
+  forward_to = [loki.process.docker_json.receiver]
 }
 
-loki.source.docker "aprova" {
-  host       = "unix:///var/run/docker.sock"
-  targets    = discovery.relabel.aprova.output
-  labels     = {"env" = "production"}
+loki.process "docker_json" {
   forward_to = [loki.write.grafana_cloud.receiver]
+
+  stage.json {
+    expressions = {
+      output  = "log",
+      service = "attrs.\"com.docker.compose.service\"",
+    }
+  }
+
+  stage.labels {
+    values = {
+      service = "",
+    }
+  }
+
+  stage.static_labels {
+    values = {
+      env = "production",
+    }
+  }
+
+  stage.output {
+    source = "output"
+  }
 }
 
 loki.write "grafana_cloud" {

@@ -7,7 +7,8 @@ x-app: &app
   restart: unless-stopped
   # Encaminha SIGTERM ao Node como PID 1, para o encerramento ordenado dos Workers.
   init: true
-  logging: { driver: json-file, options: { max-size: 10m, max-file: "5" } }
+  # O rótulo do serviço entra em cada linha de log (attrs), que o Alloy usa para identificar o contêiner.
+  logging: { driver: json-file, options: { max-size: 10m, max-file: "5", labels: com.docker.compose.service } }
 
 services:
   caddy:
@@ -98,6 +99,8 @@ services:
     image: redis:8.2
     restart: unless-stopped
     secrets: [redis_password]
+    # Com `sh -c` o entrypoint da imagem não troca de usuário; sem isto o servidor rodaria como root.
+    user: redis
     command: ["sh", "-c", "exec redis-server --appendonly yes --appendfsync everysec --maxmemory 512mb --maxmemory-policy noeviction --requirepass \"$$(cat /run/secrets/redis_password)\""]
     volumes: [redis_data:/data]
     deploy: { resources: { limits: { memory: 1G } } }
@@ -117,12 +120,12 @@ services:
     env_file: [/opt/aprova/secrets/alloy.env]
     volumes:
       - ./observability/config.alloy:/etc/alloy/config.alloy:ro
-      # Descoberta dos contêineres e leitura dos logs. O socket dá acesso à API do Docker (poder de root):
-      # por isso a imagem fica fixada, sem portas publicadas e sem outro uso.
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Logs lidos dos arquivos do Docker, somente leitura. O socket do Docker não é montado: com ele o Alloy
+      # (que tem saída para a internet) leria o ambiente, e portanto os segredos, de todos os contêineres.
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - alloy_data:/var/lib/alloy/data
     deploy: { resources: { limits: { memory: 384M } } }
-    logging: { driver: json-file, options: { max-size: 10m, max-file: "3" } }
+    logging: { driver: json-file, options: { max-size: 10m, max-file: "3", labels: com.docker.compose.service } }
     networks: [data, egress]
 
   node-exporter:

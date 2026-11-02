@@ -134,7 +134,7 @@ DAEMON_JSON=$(mktemp)
 cat > "$DAEMON_JSON" <<'EOF'
 {
   "log-driver": "json-file",
-  "log-opts": { "max-size": "10m", "max-file": "5" },
+  "log-opts": { "max-size": "10m", "max-file": "5", "labels": "com.docker.compose.service" },
   "live-restore": true
 }
 EOF
