@@ -1301,4 +1301,23 @@ Atualizado em 02/11/2026. Aprovados pelo responsável pelo produto nesta etapa: 
 
 ### 21.4 Validação
 
-Executados em `backend/`: `npm run typecheck`, `npm run lint` e `npm test`, com 68 testes passando. Os testes de `test/integration/` só rodam com `TEST_DATABASE_URL` e `TEST_REDIS_URL` definidos. Eles cobrem a concorrência da cota, a idempotência concorrente, as migrações, o reconciliador, o `jobId` duplicado e o fluxo do §8.1 com IA falsa. Sem Docker nesta máquina, não foram executados e continuam sem verificação. A API e o Worker também foram iniciados com Postgres e Redis inacessíveis: `/healthz` respondeu `200`, `/readyz` `503` e as rotas autenticadas `401`, e `/metrics` serviu as métricas.
+Executados em `backend/` em 02/11/2026:
+
+- `npm run typecheck`, `npm run lint` e `npm test`: 77 testes passando, dos quais 9 de integração. Os testes de integração rodaram contra contêineres descartáveis de `postgres:18` e `redis:8.2` (AOF ligado, `noeviction`).
+- A integração cobre:
+  - migrações em banco limpo;
+  - duas submissões simultâneas com 3 usos, das quais só uma passa;
+  - reenvio concorrente do mesmo `commandId`, que gera um único efeito;
+  - conflito de payload;
+  - devolução da cota sem ficar negativa;
+  - projeção que ignora versão antiga;
+  - o reconciliador;
+  - `jobId` duplicado ignorado pelo BullMQ;
+  - republicação de job falho de volta à fila;
+  - o fluxo do §8.1 com IA falsa, do `202` até o `GetEssay` com `completed`.
+- `npm run db:migrate` aplicou as migrações num banco novo e foi executado de novo sem erro: 15 tabelas em `write` e `read` e os papéis `aprova_api` e `aprova_worker`.
+- A API e o Worker também foram iniciados com Postgres e Redis inacessíveis: `/healthz` respondeu `200`, `/readyz` `503` e as rotas autenticadas `401`, e `/metrics` serviu as métricas.
+
+Para repetir a integração localmente, suba instâncias descartáveis e defina `TEST_DATABASE_URL` e `TEST_REDIS_URL` antes de `npm test`. Os testes recriam os esquemas e esvaziam o Redis.
+
+Sem verificação até aqui: login real com Google e Apple, chamada real à IA, comportamento sob carga (B7) e execução dentro da imagem Docker de produção (guia de DevOps).
