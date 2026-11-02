@@ -134,7 +134,7 @@
     {
       "id": 5,
       "type": "row",
-      "title": "Outbox e dead-letter",
+      "title": "Filas",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -147,7 +147,7 @@
     {
       "id": 6,
       "type": "timeseries",
-      "title": "Outbox: pendentes",
+      "title": "Jobs por fila e estado",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
@@ -155,6 +155,83 @@
       "gridPos": {
         "x": 0,
         "y": 11,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (queue, state) (queue_jobs)",
+          "legendFormat": "{{queue}} {{state}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Idade do job mais antigo por fila",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 11,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "queue_oldest_waiting_age_seconds",
+          "legendFormat": "{{queue}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "row",
+      "title": "Outbox e dead-letter",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Outbox: pendentes",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
         "w": 8,
         "h": 7
       },
@@ -177,7 +254,7 @@
       ]
     },
     {
-      "id": 7,
+      "id": 10,
       "type": "timeseries",
       "title": "Outbox: idade da mais antiga",
       "datasource": {
@@ -186,7 +263,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 11,
+        "y": 20,
         "w": 8,
         "h": 7
       },
@@ -209,7 +286,7 @@
       ]
     },
     {
-      "id": 8,
+      "id": 11,
       "type": "timeseries",
       "title": "Dead-letter: mensagens novas (1h)",
       "datasource": {
@@ -218,7 +295,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 11,
+        "y": 20,
         "w": 8,
         "h": 7
       },
@@ -241,20 +318,20 @@
       ]
     },
     {
-      "id": 9,
+      "id": 12,
       "type": "row",
       "title": "IA",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 19,
+        "y": 28,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 10,
+      "id": 13,
       "type": "timeseries",
       "title": "Chamadas por resultado",
       "datasource": {
@@ -263,7 +340,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 20,
+        "y": 29,
         "w": 6,
         "h": 7
       },
@@ -286,7 +363,7 @@
       ]
     },
     {
-      "id": 11,
+      "id": 14,
       "type": "timeseries",
       "title": "Tokens por tipo",
       "datasource": {
@@ -295,7 +372,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 20,
+        "y": 29,
         "w": 6,
         "h": 7
       },
@@ -318,16 +395,16 @@
       ]
     },
     {
-      "id": 12,
+      "id": 15,
       "type": "timeseries",
-      "title": "Custo acumulado (US$)",
+      "title": "Custo do mês (US$) x orçamento",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
       "gridPos": {
         "x": 12,
-        "y": 20,
+        "y": 29,
         "w": 6,
         "h": 7
       },
@@ -340,8 +417,17 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "ai_cost_usd_total",
-          "legendFormat": "custo",
+          "expr": "ai_cost_month_to_date_usd",
+          "legendFormat": "gasto",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "ai_monthly_budget_usd",
+          "legendFormat": "orçamento",
           "datasource": {
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
@@ -350,7 +436,7 @@
       ]
     },
     {
-      "id": 13,
+      "id": 16,
       "type": "timeseries",
       "title": "Rejeições por Premium e por cota",
       "datasource": {
@@ -359,7 +445,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 20,
+        "y": 29,
         "w": 6,
         "h": 7
       },
@@ -382,20 +468,20 @@
       ]
     },
     {
-      "id": 14,
+      "id": 17,
       "type": "row",
       "title": "Redis",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 28,
+        "y": 37,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 15,
+      "id": 18,
       "type": "timeseries",
       "title": "Memória usada x maxmemory",
       "datasource": {
@@ -404,7 +490,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 29,
+        "y": 38,
         "w": 8,
         "h": 7
       },
@@ -436,7 +522,7 @@
       ]
     },
     {
-      "id": 16,
+      "id": 19,
       "type": "timeseries",
       "title": "Clientes conectados",
       "datasource": {
@@ -445,7 +531,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 29,
+        "y": 38,
         "w": 8,
         "h": 7
       },
@@ -468,7 +554,7 @@
       ]
     },
     {
-      "id": 17,
+      "id": 20,
       "type": "stat",
       "title": "Persistência: AOF habilitado",
       "datasource": {
@@ -477,7 +563,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 29,
+        "y": 38,
         "w": 8,
         "h": 7
       },
@@ -500,20 +586,20 @@
       ]
     },
     {
-      "id": 18,
+      "id": 21,
       "type": "row",
       "title": "PostgreSQL",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 37,
+        "y": 46,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 19,
+      "id": 22,
       "type": "timeseries",
       "title": "Conexões por estado",
       "datasource": {
@@ -522,7 +608,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 38,
+        "y": 47,
         "w": 8,
         "h": 7
       },
@@ -545,7 +631,7 @@
       ]
     },
     {
-      "id": 20,
+      "id": 23,
       "type": "timeseries",
       "title": "Tamanho do banco",
       "datasource": {
@@ -554,7 +640,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 38,
+        "y": 47,
         "w": 8,
         "h": 7
       },
@@ -577,7 +663,7 @@
       ]
     },
     {
-      "id": 21,
+      "id": 24,
       "type": "stat",
       "title": "Idade do último backup",
       "datasource": {
@@ -586,7 +672,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 38,
+        "y": 47,
         "w": 8,
         "h": 7
       },
@@ -609,20 +695,20 @@
       ]
     },
     {
-      "id": 22,
+      "id": 25,
       "type": "row",
       "title": "Host",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 46,
+        "y": 55,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 23,
+      "id": 26,
       "type": "timeseries",
       "title": "CPU em uso",
       "datasource": {
@@ -631,7 +717,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 47,
+        "y": 56,
         "w": 8,
         "h": 7
       },
@@ -654,7 +740,7 @@
       ]
     },
     {
-      "id": 24,
+      "id": 27,
       "type": "timeseries",
       "title": "Memória em uso",
       "datasource": {
@@ -663,7 +749,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 47,
+        "y": 56,
         "w": 8,
         "h": 7
       },
@@ -686,7 +772,7 @@
       ]
     },
     {
-      "id": 25,
+      "id": 28,
       "type": "timeseries",
       "title": "Disco em uso",
       "datasource": {
@@ -695,7 +781,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 47,
+        "y": 56,
         "w": 8,
         "h": 7
       },

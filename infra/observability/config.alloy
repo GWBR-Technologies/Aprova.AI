@@ -30,11 +30,13 @@ prometheus.relabel "guard_cardinality" {
   }
 }
 
-// API e Workers expõem as métricas em METRICS_PORT, só na rede interna do Compose.
+// API, Workers e relay expõem as métricas em METRICS_PORT, só na rede interna do Compose. As séries já
+// carregam o rótulo service (api, worker ou relay), por isso os alvos não o repetem.
 prometheus.scrape "app" {
   targets = [
-    {"__address__" = "api:" + sys.env("METRICS_PORT"), "service" = "api"},
-    {"__address__" = "worker:" + sys.env("METRICS_PORT"), "service" = "worker"},
+    {"__address__" = "api:" + sys.env("METRICS_PORT")},
+    {"__address__" = "worker:" + sys.env("METRICS_PORT")},
+    {"__address__" = "relay:" + sys.env("METRICS_PORT")},
   ]
   job_name        = "aprova-app"
   scrape_interval = "30s"

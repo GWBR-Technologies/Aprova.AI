@@ -2,15 +2,15 @@
 # pela interface (Alerting > Alert rules). Notificação por e-mail no plano gratuito (§13.4 do guia de DevOps).
 # Os limiares são propostas a calibrar no marco B7. Cada alerta aponta para o runbook (§18).
 #
-# Nomes de métrica: os da API e dos Workers seguem o guia do Back-End (§15.2); os nomes de rótulo
-# (route, status, outcome) e os valores de outcome precisam ser confirmados com o Back-End no marco B6.
+# Nomes de métrica e rótulos confirmados pelo Back-End (guia do Back-End, §15.2): http_request_duration_seconds
+# (method, route, status), ai_requests_total{outcome=success|rejected|failed}, queue_jobs{queue,state},
+# queue_oldest_waiting_age_seconds{queue}, dead_letter_total, ai_cost_month_to_date_usd e ai_monthly_budget_usd.
+# Todas as séries do app levam o rótulo service (api, worker ou relay).
 #
-# Fora deste arquivo, por dependerem de definições externas:
+# Fora deste arquivo, por dependerem de configuração externa:
 #   - API fora do ar e validade do certificado: verificações externas do Grafana Cloud Synthetic Monitoring
-#     (GET /readyz a cada minuto; alerta com 2 minutos de falha; certificado com menos de 14 dias).
-#   - Atraso das filas essay-correction e projections (idade do job mais antigo) e custo da IA (80% de
-#     AI_MONTHLY_BUDGET_USD): exigem que o Back-End defina o nome da métrica de idade do job por fila e que
-#     exponha o orçamento mensal como métrica.
+#     (GET /readyz a cada minuto; alerta com 2 minutos de falha; certificado com menos de 14 dias). O /readyz
+#     responde 503 quando o PostgreSQL ou o Redis caem, mesmo com a API ainda aceitando comandos.
 groups:
   - name: aprova-app
     rules:
@@ -49,14 +49,38 @@ groups:
           summary: Linha pendente do outbox há mais de 2 minutos
           runbook: R11 (relay e Redis)
 
+      # outcome="rejected" é conteúdo ou requisição recusados (não é falha do provedor); só "failed" conta.
       - alert: FalhaDaIA
         expr: |
-          sum(rate(ai_requests_total{outcome!="success"}[10m]))
+          sum(rate(ai_requests_total{outcome="failed"}[10m]))
             / sum(rate(ai_requests_total[10m])) > 0.2
         for: 10m
         labels: { severity: high }
         annotations:
           summary: Mais de 20% de falhas nas chamadas à IA em 10 minutos
+          runbook: R8
+
+      - alert: CorrecaoDeRedacaoAtrasada
+        expr: queue_oldest_waiting_age_seconds{queue="essay-correction"} > 600
+        for: 2m
+        labels: { severity: medium }
+        annotations:
+          summary: Job mais antigo da fila essay-correction espera há mais de 10 minutos
+          runbook: R11 e R8
+
+      - alert: ProjecaoAtrasada
+        expr: queue_oldest_waiting_age_seconds{queue="projections"} > 120
+        for: 2m
+        labels: { severity: medium }
+        annotations:
+          summary: Job mais antigo da fila projections espera há mais de 2 minutos
+          runbook: R9
+
+      - alert: CustoDaIAEm80PorCento
+        expr: ai_cost_month_to_date_usd / ai_monthly_budget_usd > 0.8
+        labels: { severity: medium }
+        annotations:
+          summary: Gasto do mês (UTC) acima de 80% de AI_MONTHLY_BUDGET_USD
           runbook: R8
 
       - alert: AlvoDeMetricasForaDoAr
