@@ -10,8 +10,7 @@ import { getOutboxRowByResource, observeOutbox } from '@/core/outbox/instance';
 import type { OutboxRow } from '@/core/outbox/outbox';
 
 import { deriveEssayScreenState, type EssayScreenState } from './essay.mapper';
-
-export const essayQueryKey = (essayId: string) => ['essay', essayId] as const;
+import { essayQueryKey } from './query-keys';
 
 /**
  * `GetEssay`. O `404` logo depois do `202` é a projeção ainda não aplicada: só vira "em

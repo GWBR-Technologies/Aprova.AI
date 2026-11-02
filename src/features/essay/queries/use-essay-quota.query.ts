@@ -5,8 +5,7 @@ import type { EntitlementsView } from '@contracts/queries/get-entitlements.query
 import { apiGet } from '@/core/api/http';
 
 import { toEssayAccess } from './essay.mapper';
-
-export const entitlementsQueryKey = ['entitlements'] as const;
+import { entitlementsQueryKey } from './query-keys';
 
 /**
  * Plano e cota vêm sempre do servidor. `staleTime: 0` revalida ao abrir a tela de redação, e a

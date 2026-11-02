@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
@@ -7,11 +7,15 @@ import { Colors } from '@/constants/theme';
 import { session } from '@/core/api/http';
 import { connectQueryLifecycle, queryClient } from '@/core/api/query-client';
 import { useSessionState } from '@/core/api/use-session';
+import { routeForNotice } from '@/core/events/push-notice';
+import { subscribePushNotices } from '@/core/events/push-listeners';
 import { startOutboxTriggers } from '@/core/outbox/triggers';
+import { handleEssayNotice } from '@/features/essay/events/essay-events';
 
 export default function RootLayout() {
   const state = useSessionState();
   const userId = state.status === 'signedIn' ? state.userId : null;
+  const router = useRouter();
 
   useEffect(() => {
     void session.restore();
@@ -24,8 +28,20 @@ export default function RootLayout() {
       queryClient.clear();
       return;
     }
-    return startOutboxTriggers(userId);
-  }, [userId]);
+    const stopOutbox = startOutboxTriggers(userId);
+    const stopPush = subscribePushNotices({
+      onReceived: (notice) => handleEssayNotice(notice, queryClient),
+      onOpened: (notice) => {
+        handleEssayNotice(notice, queryClient);
+        const route = routeForNotice(notice);
+        if (route) router.push(route);
+      },
+    });
+    return () => {
+      stopOutbox();
+      stopPush();
+    };
+  }, [userId, router]);
 
   // A sessão é restaurada do SecureStore sem rede; até lá não há o que mostrar.
   if (state.status === 'loading') return null;

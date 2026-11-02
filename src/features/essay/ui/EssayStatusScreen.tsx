@@ -7,7 +7,8 @@ import { useSessionState } from '@/core/api/use-session';
 import { discardCommand } from '@/core/outbox/instance';
 
 import { useEssayScreenState, useOutboxOfResource } from '../queries/use-essay.query';
-import { entitlementsQueryKey, useEssayAccess } from '../queries/use-essay-quota.query';
+import { entitlementsQueryKey } from '../queries/query-keys';
+import { useEssayAccess } from '../queries/use-essay-quota.query';
 import { EssayStatusCard } from './EssayStatusCard';
 
 export type EssayStatusScreenProps = {
