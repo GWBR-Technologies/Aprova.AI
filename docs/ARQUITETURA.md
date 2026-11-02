@@ -353,7 +353,7 @@ Para não criar pastas vazias nem abstrações sem uso, o repositório contém h
 | --- | --- |
 | `index.ts`, `src/app/` | `src/components/`, `src/hooks/`, `src/constants/theme.ts` |
 | `contracts/`, `src/features/`, `src/core/` (README) | Subpastas de `contracts/`, de `src/core/` e de cada contexto |
-| `backend/src/domain`, `application`, `infrastructure`, `api`, `workers`, `bootstrap` (README) | Subpastas de `application/` e `infrastructure/`, `backend/package.json`, `infra/`, `.github/workflows/`, `eas.json` |
+| `backend/` com `package.json`, migrações, testes e o código de todas as camadas (marcos B0 a B4; estado em `docs/IMPLEMENTACAO-BACKEND.md`, §21); `contracts/commands`, `queries`, `events` e `auth` | `backend/src/workers/mock-exam-processing` e `notifications`, `infra/`, `.github/workflows/`, `eas.json` |
 
 ### 10.3 Regras de dependência
 
@@ -434,7 +434,7 @@ Segurança:
 
 ## 12. Testes e validação
 
-- Estado atual: não há executor de testes nem scripts de lint, testes ou verificação de tipos, e nenhuma cobertura pode ser afirmada. A verificação de tipos pode ser feita manualmente com `npx tsc --noEmit`, que não é um script configurado.
+- Estado atual: o `backend/` tem Vitest e os scripts `typecheck`, `lint` e `test` (testes unitários, de API e de integração com Postgres e Redis reais, estes últimos só com `TEST_DATABASE_URL` e `TEST_REDIS_URL`). O app na raiz ainda não tem executor de testes nem scripts de lint ou de tipos; nele, a verificação de tipos é manual (`npx tsc --noEmit`).
 - Quando um executor de testes for aprovado: testes unitários de `domain`, handlers e projetores; testes de contrato entre `contracts/` e a API; teste de integração com BullMQ e um Redis efêmero; teste de ponta a ponta do fluxo do §8.1.
 - Toda nova fronteira (comando, consulta, evento, saída da IA) é testada nos casos de sucesso, inválido, ausente e falha.
 
@@ -465,22 +465,22 @@ Cada item abaixo exige decisão antes de qualquer implementação que dependa de
 
 | Decisão | Impacto | Status |
 | --- | --- | --- |
-| Autenticação e identidade do aluno | Todo comando, consulta e evento precisa pertencer a um aluno. | Proposta nos guias: login com Google e Apple, tokens JWT da API; aguarda aprovação. |
-| Banco do write store e do read store | Modelagem de agregados, projeções e outbox. | Proposta: PostgreSQL com esquemas `write` e `read` na mesma instância; aguarda aprovação. |
-| Runtime e framework do backend | Estrutura de `backend/package.json` e de `api/`. | Proposta: Node.js 24 LTS, Fastify, Drizzle ORM, BullMQ, Vitest; aguarda aprovação. |
+| Autenticação e identidade do aluno | Todo comando, consulta e evento precisa pertencer a um aluno. | Decidido: login com Google e Apple (OIDC), JWT de acesso curto e refresh token rotativo emitidos pela API. |
+| Banco do write store e do read store | Modelagem de agregados, projeções e outbox. | Decidido: PostgreSQL com esquemas `write` e `read` na mesma instância. |
+| Runtime e framework do backend | Estrutura de `backend/package.json` e de `api/`. | Decidido: Node.js 24 LTS, Fastify, Drizzle ORM, BullMQ, Vitest. |
 | Hospedagem do Redis e dos Workers | Persistência AOF, alertas e escala. | Decidido (D11): Oracle Always Free com Docker Compose; Render depois. |
 | Canal de eventos para o app | Como o app descobre `EssayCorrected` e `MockExamProcessed`. | Proposta: consulta periódica com intervalo crescente, com push do Expo como aviso; aguarda aprovação. |
 | Persistência local do app (outbox) | Dependência nova no app. | Proposta: `expo-sqlite`; aguarda aprovação. |
-| Biblioteca de validação em tempo de execução | Esquemas de validação e o impacto em D7. | Proposta: `zod` somente no backend, com `contracts/` só de tipos (o esquema do backend é verificado contra o tipo com `satisfies`), o que preserva D7; aguarda aprovação. |
+| Biblioteca de validação em tempo de execução | Esquemas de validação e o impacto em D7. | Proposta: `zod` somente no backend, com `contracts/` só de tipos (o esquema do backend é verificado contra o tipo com `satisfies`), o que preserva D7. Decidido. |
 | Expo Router e biblioteca de dados do cliente | Onde fica a composição de `src/app/` (§10.4). | Proposta: Expo Router e TanStack Query; aguarda aprovação. |
 | Contrato exato do GPT 6.1 - Terra | `AiPort`, limites de taxa e prompts. | Parcial: identificador e preços confirmados; limites de contexto e de saída e formato de saída em aberto. |
 | Rubrica de correção de redação e regras de simulado | Esquema do resultado da IA e dos eventos. | Em aberto (produto). |
 | Fonte do plano Premium (assinatura, cobrança, preço, período de teste) | Implementação real de `EntitlementPort` e custos de loja. | Em aberto; custos estimados nos guias. |
 | Janela da cota de redação (mês corrido ou 30 dias móveis) | Regra de `SubmitEssay` e texto da interface. | Premissa: mês corrido em `America/Sao_Paulo`; confirmar com o produto. |
-| Exceção: `GetEntitlements` lê o write store pela `EntitlementPort` | O plano e a cota precisam ser exatos; a alternativa são os eventos `PlanChanged` e `UserRegistered` mais uma projeção. | Proposta nos guias; aguarda aprovação. |
+| Exceção: `GetEntitlements` lê o write store pela `EntitlementPort` | O plano e a cota precisam ser exatos; a alternativa são os eventos `PlanChanged` e `UserRegistered` mais uma projeção. | Decidido: a exceção foi aprovada. |
 | Comando `RegisterPushToken`, consulta `GetEssayList` e fila `notifications` | Catálogos de comandos e consultas (§4) e de filas (§6), para o push e o histórico de redações. | Propostas; só entram nas tabelas desta arquitetura depois de aprovadas. |
 | LGPD: base legal, retenção e exclusão | Dados enviados à IA e guardados no servidor. | Em aberto. |
-| Executor de testes e integração contínua | Seção 12. | Proposta: Vitest (backend e `contracts/`), `jest-expo` (app) e GitHub Actions; aguarda aprovação. |
+| Executor de testes e integração contínua | Seção 12. | Decidido para o backend: Vitest e scripts `lint` e `typecheck` em `backend/`. Proposta para o app (`jest-expo`) e para a integração contínua (GitHub Actions); aguardam aprovação. |
 
 ## 15. Guias de implementação
 

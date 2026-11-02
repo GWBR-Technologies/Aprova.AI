@@ -6,7 +6,7 @@
 
 O código do app fica em `src/` (composição em `src/app/`, contextos em `src/features/`, infraestrutura do cliente em `src/core/`), os contratos compartilhados em `contracts/` e a API com os Workers em `backend/src/`. O ponto de entrada é `index.ts`, na raiz.
 
-O repositório está no estágio inicial: a tela inicial está vazia e não há navegação, cliente de rede, persistência, autenticação, backend nem scripts de lint, testes ou verificação de tipos. A orientação é retrato (`app.json`).
+O app está no estágio inicial: a tela inicial está vazia e não há navegação, cliente de rede, persistência, autenticação nem scripts de lint, testes ou verificação de tipos. O backend em `backend/` está implementado até o marco B4 (estado no §21 de `docs/IMPLEMENTACAO-BACKEND.md`). A orientação é retrato (`app.json`).
 
 Use `docs/AGENTS.md` como o guia compartilhado do projeto. Este arquivo adiciona os fluxos específicos disponíveis em `.claude/`.
 
@@ -71,7 +71,7 @@ Os scripts atualmente definidos são:
 | Abrir no iOS | `npm run ios` |
 | Iniciar a versão web | `npm run web` |
 
-Não há scripts configurados para lint, verificação de tipos, testes, testes de ponta a ponta ou build de produção. Não os presuma nem os execute como se existissem. A verificação de tipos pode ser feita manualmente com `npx tsc --noEmit`, relatada como verificação manual.
+No app (raiz), não há scripts configurados para lint, verificação de tipos, testes, testes de ponta a ponta ou build de produção. Não os presuma nem os execute como se existissem. No `backend/` existem `npm run typecheck`, `npm run lint` e `npm test` (execute dentro de `backend/`); os testes de integração só rodam com `TEST_DATABASE_URL` e `TEST_REDIS_URL` apontando para instâncias descartáveis. A verificação de tipos pode ser feita manualmente com `npx tsc --noEmit`, relatada como verificação manual.
 
 Para uma mudança de interface, valide na plataforma afetada quando houver um destino local disponível. Para mudanças em componentes compartilhados, considere as implementações nativa e web.
 
