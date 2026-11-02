@@ -84,6 +84,11 @@ export function aiUsageRepository(db: Executor): AiUsageRepository {
       await db.insert(aiUsage).values(usage);
     },
 
+    async countForEssay(essayId) {
+      const [row] = await db.select({ count: sql<number>`count(*)::int` }).from(aiUsage).where(eq(aiUsage.essayId, essayId));
+      return row?.count ?? 0;
+    },
+
     async costSince(since) {
       const [row] = await db
         .select({ total: sql<string>`coalesce(sum(${aiUsage.costUsd}), 0)` })

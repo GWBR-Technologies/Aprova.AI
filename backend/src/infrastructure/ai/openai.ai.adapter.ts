@@ -60,6 +60,9 @@ export function openAiAdapter(config: Config): AiPort {
         if (err instanceof APIError) {
           const status = err.status ?? 0;
           if (status === 408 || status === 409 || status === 429 || status >= 500) throw new TransientAiError(`IA: status ${status}`);
+          // Chave inválida, sem permissão ou modelo inexistente são erros de configuração, não do
+          // texto: a redação não deve ser marcada como recusada. As tentativas seguem até a correção.
+          if (status === 401 || status === 403 || status === 404) throw new TransientAiError(`IA: configuração recusada com status ${status}`);
           throw new PermanentAiError(`IA: requisição recusada com status ${status}`);
         }
         throw err;

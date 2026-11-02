@@ -12,5 +12,5 @@
     "types": ["node"],
     "paths": { "@contracts/*": ["../contracts/*"] }
   },
-  "include": ["src", "test", "../contracts", "drizzle.config.ts"]
+  "include": ["src", "test", "../contracts", "drizzle.config.ts", "vitest.config.ts"]
 }

@@ -180,6 +180,9 @@ function bind(s: State, now: () => Date): Tx {
       async record(usage) {
         s.aiUsage.push(usage);
       },
+      async countForEssay(essayId) {
+        return s.aiUsage.filter((u) => u.essayId === essayId).length;
+      },
       async costSince() {
         return s.aiUsage.reduce((sum, u) => sum + u.costUsd, 0);
       },

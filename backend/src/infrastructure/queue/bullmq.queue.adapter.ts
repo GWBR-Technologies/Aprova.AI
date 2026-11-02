@@ -54,7 +54,16 @@ export function bullmqQueue({ producer, createWorkerConnection, logger }: Connec
 
   const port: QueuePort = {
     async publish(queue, message, opts) {
-      await queueFor(queue).add(message.type, message, { jobId: opts.jobId });
+      const target = queueFor(queue);
+      // Um job falho continua retido (removeOnFail) e faria o BullMQ ignorar a republicação com o
+      // mesmo jobId. Quando o reconciliador republica um agregado parado, o job falho volta à fila
+      // com as tentativas zeradas, em vez de a redação ficar presa em 'processing' (§8.4 do guia).
+      const existing = await target.getJob(opts.jobId);
+      if (existing && (await existing.isFailed())) {
+        await existing.retry('failed', { resetAttemptsMade: true });
+        return;
+      }
+      await target.add(message.type, message, { jobId: opts.jobId });
     },
 
     consume(queue, handler, opts) {

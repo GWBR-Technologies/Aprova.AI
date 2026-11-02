@@ -44,5 +44,6 @@ export type AiUsageRecord = {
 
 export interface AiUsageRepository {
   record(usage: AiUsageRecord): Promise<void>;
+  countForEssay(essayId: string): Promise<number>;
   costSince(since: Date): Promise<number>;
 }

@@ -59,8 +59,8 @@ describe('openAiAdapter', () => {
     expect(result).toEqual({ raw: { ok: true }, model: 'modelo-falso', usage: { inputTokens: 100, cachedInputTokens: 40, outputTokens: 20 } });
   });
 
-  it('traduz 429 e 5xx em erro transitório', async () => {
-    for (const status of [429, 503]) {
+  it('traduz 429, 5xx e erros de configuração (401, 404) em erro transitório', async () => {
+    for (const status of [429, 503, 401, 404]) {
       nextStatus = status;
       await expect(adapter().correctEssay({ essayText: 't', promptVersion: 'teste-v1' }, { signal: signal() })).rejects.toBeInstanceOf(TransientAiError);
     }

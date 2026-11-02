@@ -22,11 +22,18 @@ type Deps = {
   parseResult: (raw: unknown) => Record<string, unknown> | null;
   prices: AiPrices;
   timeoutMs: number;
-  /** Tentativas por saída inválida antes da falha permanente (proposta inicial: 2). */
+  /** Saídas inválidas aceitas antes da falha permanente (proposta inicial: 2). */
   maxInvalidOutputAttempts: number;
 };
 
-class InvalidAiOutput extends Error {}
+class InvalidAiOutput extends Error {
+  readonly final: boolean;
+
+  constructor(final: boolean) {
+    super('Saída da IA fora do esquema');
+    this.final = final;
+  }
+}
 
 export function aiCostUsd(usage: AiUsage, prices: AiPrices): number {
   const uncached = Math.max(usage.inputTokens - usage.cachedInputTokens, 0);
@@ -84,20 +91,23 @@ export function makeEssayCorrectionProcessor(deps: Deps): MessageHandler {
       { signal: AbortSignal.timeout(deps.timeoutMs) },
     );
 
-    // Registrado também quando a saída é inválida, porque a chamada foi cobrada.
-    await deps.uow.run((tx) =>
-      tx.aiUsage.record({
+    // Registrado também quando a saída é inválida, porque a chamada foi cobrada. Enquanto a redação
+    // está em processamento, cada linha de ai_usage dela é uma resposta que não pôde ser gravada:
+    // a contagem limita as saídas inválidas, sem contar tempos limite e erros 5xx.
+    const responses = await deps.uow.run(async (tx) => {
+      await tx.aiUsage.record({
         essayId: pending.id,
         attempt: delivery.attemptsMade + 1,
         model: correction.model,
         promptVersion: deps.promptVersion,
         ...correction.usage,
         costUsd: aiCostUsd(correction.usage, deps.prices),
-      }),
-    );
+      });
+      return tx.aiUsage.countForEssay(pending.id);
+    });
 
     const result = deps.parseResult(correction.raw);
-    if (!result) throw new InvalidAiOutput('Saída da IA fora do esquema');
+    if (!result) throw new InvalidAiOutput(responses >= deps.maxInvalidOutputAttempts);
 
     const now = deps.now();
     await deps.uow.run(async (tx) => {
@@ -129,7 +139,7 @@ export function makeEssayCorrectionProcessor(deps: Deps): MessageHandler {
     } catch (err) {
       // Erros comuns são transitórios: o BullMQ repete com backoff. As falhas abaixo encerram o job.
       if (err instanceof PermanentAiError) await failPermanently(delivery, message, 'AI_REJECTED', err.message);
-      if (err instanceof InvalidAiOutput && (attempt >= deps.maxInvalidOutputAttempts || isLastAttempt)) {
+      if (err instanceof InvalidAiOutput && (err.final || isLastAttempt)) {
         await failPermanently(delivery, message, 'AI_INVALID_OUTPUT', err.message);
       }
       if (isLastAttempt) await failPermanently(delivery, message, 'PROCESSING_FAILED', err instanceof Error ? err.message : 'erro desconhecido');

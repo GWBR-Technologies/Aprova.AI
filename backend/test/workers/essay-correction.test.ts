@@ -100,6 +100,17 @@ describe('Worker de correção de redação', () => {
     expect(store.state.aiUsage).toHaveLength(2);
   });
 
+  it('conta só saídas inválidas: tempo limite seguido de saída inválida ainda repete', async () => {
+    const invalid: AiCorrection = { ...validOutput, raw: 'texto livre' };
+    const { store, essayId, deliver } = await setup([new TransientAiError('timeout'), invalid, validOutput]);
+
+    await expect(deliver(0)).rejects.toBeInstanceOf(TransientAiError);
+    await expect(deliver(1)).rejects.not.toBeInstanceOf(PermanentFailure);
+    await deliver(2);
+
+    expect(store.state.essays.get(essayId)?.status).toBe('completed');
+  });
+
   it('conteúdo recusado pela IA falha na hora, sem novas tentativas', async () => {
     const { store, essayId, deliver } = await setup([new PermanentAiError('recusado')]);
 
