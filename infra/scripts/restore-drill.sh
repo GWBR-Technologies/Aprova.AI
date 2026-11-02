@@ -44,10 +44,11 @@ echo "Restaurando $(basename "$BACKUP_FILE") em $image (sem rede, descartável)"
 # Senha de um contêiner sem rede e descartável; não é segredo.
 docker run -d --rm --name "$name" --network none -e POSTGRES_PASSWORD=drill-only -e POSTGRES_DB=drill "$image" >/dev/null
 for _ in $(seq 1 60); do
-  docker exec "$name" pg_isready -U postgres -d drill >/dev/null 2>&1 && break
+  # -h 127.0.0.1: o servidor temporário da inicialização escuta só no socket Unix; o definitivo escuta em TCP.
+  docker exec "$name" pg_isready -h 127.0.0.1 -U postgres -d drill >/dev/null 2>&1 && break
   sleep 2
 done
-docker exec "$name" pg_isready -U postgres -d drill >/dev/null
+docker exec "$name" pg_isready -h 127.0.0.1 -U postgres -d drill >/dev/null
 
 # Sem --no-owner o pg_restore exigiria os papéis do cluster de produção, que o dump não carrega.
 age -d -i "$KEY_FILE" "$BACKUP_FILE" \

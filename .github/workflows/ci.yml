@@ -11,7 +11,8 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Só PRs cancelam execuções antigas: um push em master cancelado deixaria o commit sem checks verdes e impediria promovê-lo.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   app:

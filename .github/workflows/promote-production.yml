@@ -77,7 +77,8 @@ jobs:
       - name: Aguardar /readyz
         id: readyz
         run: |
-          sleep 150
+          # Um ciclo do temporizador (2 min) mais pull, migração e subida; sem versão no /readyz é o melhor possível.
+          sleep 240
           for attempt in $(seq 1 30); do
             code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$API_BASE_URL/readyz" || true)"
             echo "tentativa $attempt: HTTP $code"

@@ -151,6 +151,8 @@ log "Diretórios de $APP_DIR"
 install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0755 "$APP_DIR"
 install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0700 "$APP_DIR/secrets"
 install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0750 "$APP_DIR/backups"
+# Montado pelo node-exporter; criado aqui para não nascer como root quando o Compose sobe antes do primeiro backup.
+install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0755 "$APP_DIR/backups/metrics"
 if [ ! -d "$APP_DIR/repo/.git" ]; then
   sudo -u "$DEPLOY_USER" git clone --depth 1 --branch "$REPO_BRANCH" "$REPO_URL" "$APP_DIR/repo"
 fi

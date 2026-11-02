@@ -60,11 +60,11 @@ groups:
           runbook: R8
 
       - alert: AlvoDeMetricasForaDoAr
-        expr: up{job="aprova-app"} == 0
+        expr: up{job=~"aprova-app|aprova-infra"} == 0
         for: 3m
         labels: { severity: high }
         annotations:
-          summary: API ou Worker sem expor métricas
+          summary: API, Worker ou exportador (host, Redis, PostgreSQL) sem expor métricas; os demais alertas ficam cegos
           runbook: R11
 
   - name: aprova-infra
@@ -134,7 +134,7 @@ groups:
       - alert: RiscoDeOciosidadeOracle
         expr: |
           quantile_over_time(0.95, (1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])))[5d:5m]) < 0.2
-          and
+          and on()
           quantile_over_time(0.95, (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)[5d:5m]) < 0.2
         labels: { severity: low }
         annotations:
