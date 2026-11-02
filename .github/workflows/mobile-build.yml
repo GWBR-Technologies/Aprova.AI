@@ -35,6 +35,8 @@ jobs:
     # O EXPO_TOKEN fica como segredo deste ambiente, restrito a master e a etiquetas v* (Settings > Environments).
     environment: mobile
     env:
+      # Mesma opção do job app do ci: o lockfile do app é gerado com legacy-peer-deps.
+      NPM_CONFIG_LEGACY_PEER_DEPS: "true"
       PROFILE: ${{ inputs.profile || 'preview' }}
       PLATFORM: ${{ inputs.platform || 'all' }}
     steps:

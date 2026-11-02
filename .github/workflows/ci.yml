@@ -17,6 +17,10 @@ concurrency:
 jobs:
   app:
     runs-on: ubuntu-latest
+    # O package-lock.json do app é gerado com legacy-peer-deps (sem os peers opcionais do Expo, como react-dom).
+    # Sem a opção, o npm ci em Linux tenta instalá-los e conflita com o React fixado (ERESOLVE).
+    env:
+      NPM_CONFIG_LEGACY_PEER_DEPS: "true"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { persist-credentials: false }
