@@ -14,6 +14,7 @@ export default function NewEssayRoute() {
     <EssayComposerScreen
       retryCommandId={retryCommandId}
       onSubmitted={(essayId) => router.replace(`/redacao/${essayId}`)}
+      onOpenPhoto={() => router.push('/redacao/foto')}
     />
   );
 }

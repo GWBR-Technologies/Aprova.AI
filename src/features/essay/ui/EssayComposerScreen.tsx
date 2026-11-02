@@ -21,6 +21,8 @@ export type EssayComposerScreenProps = {
   /** Comando rejeitado cujo texto volta ao editor para ser corrigido e reenviado. */
   retryCommandId?: string;
   onSubmitted: (essayId: string) => void;
+  /** Abre a captura da foto da folha, que vai substituir o texto digitado quando o envio existir. */
+  onOpenPhoto?: () => void;
 };
 
 function textOfEnvelope(body: string | null): string {
@@ -33,13 +35,13 @@ function textOfEnvelope(body: string | null): string {
   }
 }
 
-export function EssayComposerScreen({ retryCommandId, onSubmitted }: EssayComposerScreenProps) {
+export function EssayComposerScreen(props: EssayComposerScreenProps) {
   const session = useSessionState();
   if (session.status !== 'signedIn') return null;
-  return <Composer userId={session.userId} retryCommandId={retryCommandId} onSubmitted={onSubmitted} />;
+  return <Composer userId={session.userId} {...props} />;
 }
 
-function Composer({ userId, retryCommandId, onSubmitted }: EssayComposerScreenProps & { userId: string }) {
+function Composer({ userId, retryCommandId, onSubmitted, onOpenPhoto }: EssayComposerScreenProps & { userId: string }) {
   const access = useEssayAccess(userId);
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -147,6 +149,7 @@ function Composer({ userId, retryCommandId, onSubmitted }: EssayComposerScreenPr
           {text.length} caracteres
         </AppText>
       </View>
+      {onOpenPhoto ? <Button label="Fotografar a folha" variant="outline" onPress={onOpenPhoto} /> : null}
       <AppText variant="caption" tone="muted">
         A correção é feita por IA e traz uma nota estimada. Não substitui a nota oficial da prova.
       </AppText>

@@ -62,6 +62,7 @@ export default function RootLayout() {
         <Stack.Protected guard={state.status === 'signedIn'}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="redacao/nova" options={{ title: 'Nova redação' }} />
+          <Stack.Screen name="redacao/foto" options={{ headerShown: false }} />
           <Stack.Screen name="redacao/[essayId]" options={{ title: 'Redação' }} />
         </Stack.Protected>
       </Stack>
