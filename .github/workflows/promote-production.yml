@@ -73,20 +73,24 @@ jobs:
       - name: Mover a etiqueta production
         run: docker buildx imagetools create -t "$IMAGE:production" "$IMAGE:$SHA"
 
-      # A VM busca a etiqueta a cada 2 minutos; a espera cobre o ciclo mais a subida dos contêineres.
-      - name: Aguardar /readyz
+      # A VM busca a etiqueta a cada 2 minutos. O corpo do /readyz traz { status, version } com o GIT_SHA da imagem:
+      # o fluxo só termina verde quando responde 200 e a versão é a promovida.
+      - name: Aguardar /readyz com a versão promovida
         id: readyz
         run: |
-          # Um ciclo do temporizador (2 min) mais pull, migração e subida; sem versão no /readyz é o melhor possível.
-          sleep 240
-          for attempt in $(seq 1 30); do
-            code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$API_BASE_URL/readyz" || true)"
-            echo "tentativa $attempt: HTTP $code"
-            if [ "$code" = "200" ]; then echo "code=$code" >> "$GITHUB_OUTPUT"; exit 0; fi
+          sleep 60
+          code=""; version=""
+          for attempt in $(seq 1 40); do
+            code="$(curl -s --max-time 10 -o "$RUNNER_TEMP/readyz.json" -w '%{http_code}' "$API_BASE_URL/readyz" || true)"
+            version="$(jq -r '.version // empty' "$RUNNER_TEMP/readyz.json" 2>/dev/null || true)"
+            echo "tentativa $attempt: HTTP $code, versão ${version:-desconhecida}"
+            if [ "$code" = "200" ] && [ "$version" = "$SHA" ]; then
+              echo "code=$code" >> "$GITHUB_OUTPUT"; echo "version=$version" >> "$GITHUB_OUTPUT"; exit 0
+            fi
             sleep 20
           done
-          echo "code=$code" >> "$GITHUB_OUTPUT"
-          echo "::error::/readyz não respondeu 200; para voltar, rode este fluxo com o SHA anterior"
+          echo "code=$code" >> "$GITHUB_OUTPUT"; echo "version=${version:-desconhecida}" >> "$GITHUB_OUTPUT"
+          echo "::error::/readyz não respondeu 200 com a versão $SHA; para voltar, rode este fluxo com o SHA anterior"
           exit 1
 
       - name: Relatório do deploy
@@ -100,6 +104,6 @@ jobs:
             echo "- Horário (UTC): $(date -u +%FT%TZ)"
             echo "- Disparado por: ${{ github.triggering_actor }}"
             echo "- Aprovado por: ${approvers:-não identificado}"
-            echo "- /readyz: HTTP ${{ steps.readyz.outputs.code }}"
+            echo "- /readyz: HTTP ${{ steps.readyz.outputs.code }}, versão \`${{ steps.readyz.outputs.version }}\`"
             echo "- Resultado do fluxo: ${{ job.status }}"
           } >> "$GITHUB_STEP_SUMMARY"

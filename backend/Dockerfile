@@ -14,5 +14,8 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./
 COPY src ./src
 COPY migrations ./migrations
+# SHA do commit, exposto no corpo do /readyz (campo version); o fluxo de promoção compara com o SHA promovido.
+ARG GIT_SHA
+ENV GIT_SHA=$GIT_SHA
 USER node
 CMD ["node", "src/bootstrap/api.ts"]
