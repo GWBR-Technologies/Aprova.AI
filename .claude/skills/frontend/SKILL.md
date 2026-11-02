@@ -25,7 +25,7 @@ Before making a frontend decision, read `${CLAUDE_SKILL_DIR}/design.md` and `${C
 ## Implementation Rules
 
 - Use React Native primitives and `StyleSheet` for shared native UI. Place browser-only behavior in `.web.tsx` files.
-- Keep navigation within `src/app/`. Expo Router is not installed; adding it requires approval.
+- Keep navigation within `src/app/` (Expo Router); route files stay thin and render screens from `src/features/<context>/ui`.
 - Reuse the tokens in `src/constants/theme.ts` and existing shared components before creating a new primitive.
 - Keep controls understandable without color, pressed state, or icons alone. Provide clear labels, accessible names, visible focus, and generous touch targets.
 - Do not create fictional questions, scores, performance data, history, or essay corrections. Request the missing contract first.
@@ -35,6 +35,6 @@ Before making a frontend decision, read `${CLAUDE_SKILL_DIR}/design.md` and `${C
 
 ## Validation and Completion
 
-- No lint script exists; run `npx tsc --noEmit` as a manual type check when useful and report it as manual.
+- Run `npm run lint`, `npm run typecheck`, and `npm test`, and report each result.
 - Run a relevant local platform command only when a suitable local target is available.
 - Report the local design requirements applied, reused patterns, covered states, validation results, and any product or contract decision still needed.

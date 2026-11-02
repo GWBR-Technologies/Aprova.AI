@@ -16,12 +16,12 @@ paths:
 
 ## Project Status
 
-No test runner or test script is currently configured. Do not claim Jest, end-to-end, or browser-automation coverage exists, and do not add a test dependency without approval.
+Tests run with `npm test` (`jest-expo` and `@testing-library/react-native`). Do not claim end-to-end, device, or browser-automation coverage exists, and do not add a test dependency without approval.
 
-When a test framework is explicitly introduced, add focused coverage for observable behavior, validation, failure recovery, and platform-specific behavior affected by the change.
+Add focused coverage for observable behavior, validation, failure recovery, and platform-specific behavior affected by the change. Query by role and accessible label (`getByRole`), not by test ID. Core modules take their dependencies by injection (HTTP, SQLite, clock), so test them without mocking modules.
 
 ## Local Validation
 
-Run the narrowest available check first. The repository defines no lint, type-check, or test script; type checking can be run manually with `npx tsc --noEmit` and must be reported as a manual check. Use `npm run web`, `npm run ios`, or `npm run android` only when relevant to the changed platform and a local target is available.
+Run the narrowest available check first. The repository defines `npm run lint`, `npm run typecheck`, and `npm test`; run the ones that apply and report each result. Use `npm run web`, `npm run ios`, or `npm run android` only when relevant to the changed platform and a local target is available.
 
 If a command is unavailable, fails because of unrelated existing work, or cannot run locally, report that fact clearly and state what remains unverified.
