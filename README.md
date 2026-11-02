@@ -58,8 +58,10 @@ em [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md), também disponível em PDF
 ([`docs/ARQUITETURA.pdf`](docs/ARQUITETURA.pdf)). Cada equipe tem um guia de
 implementação (Front-End, Back-End e DevOps) em `docs/`, com o PDF correspondente.
 
-Hoje o repositório contém apenas a aplicação Expo e a estrutura de camadas;
-BullMQ, Redis, backend e contratos ainda não estão implementados nem instalados.
+O backend (API de comandos e consultas, relay do outbox e Workers) está em
+`backend/`, com dependências e scripts próprios, e os contratos com o app estão
+em `contracts/`. O estado de cada marco e o que continua bloqueado estão no
+§21 de [`docs/IMPLEMENTACAO-BACKEND.md`](docs/IMPLEMENTACAO-BACKEND.md).
 
 | Arquivo ou diretório | Responsabilidade |
 | --- | --- |
@@ -171,9 +173,11 @@ Aprova.AI/
 │   ├── rules/           # Convenções de código, dados e testes
 │   └── skills/          # Fluxos de interface e prontidão local
 ├── assets/              # Ícones e imagens
-├── backend/
-│   └── src/             # domain, application, infrastructure, api, workers, bootstrap
-├── contracts/           # Contrato app <-> backend (comandos, consultas, eventos)
+├── backend/             # API, relay e Workers (package.json e scripts próprios)
+│   ├── migrations/      # SQL versionado (drizzle-kit)
+│   ├── src/             # domain, application, infrastructure, api, workers, bootstrap
+│   └── test/            # Vitest: unitários, API e integração
+├── contracts/           # Contrato app <-> backend (comandos, consultas, eventos, auth)
 ├── docs/                # Arquitetura, guias de implementação (.md e .pdf), guias e design
 ├── src/
 │   ├── app/
@@ -211,11 +215,12 @@ Aprova.AI/
 - **Suporte web:** existe o script `web`, mas `react-dom` e
   `react-native-web` ainda não estão declarados nas dependências.
 - **Navegação:** Expo Router não está instalado na base atual.
-- **Validação:** não há scripts de lint, testes ou build de produção
-  configurados, nem uma suíte de testes versionada.
-- **Arquitetura:** a organização em camadas existe, mas não há backend,
-  filas, contratos, cliente de rede nem persistência implementados. As
-  decisões em aberto estão em `docs/ARQUITETURA.md` (seção 14).
+- **Validação:** o app na raiz não tem scripts de lint, testes ou build de
+  produção. O `backend/` tem `npm run typecheck`, `npm run lint` e `npm test`
+  (execute dentro de `backend/`).
+- **Arquitetura:** o backend está implementado até o marco B4. No app ainda
+  não há cliente de rede, outbox local nem persistência. As decisões em aberto
+  estão em `docs/ARQUITETURA.md` (seção 14).
 - **Design:** a identidade visual do Aprova.AI ainda não foi definida
   (`docs/DESIGN.md`).
 

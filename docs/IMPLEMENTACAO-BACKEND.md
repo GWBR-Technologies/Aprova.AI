@@ -24,6 +24,7 @@ Guia para a equipe de API, Workers e dados. Reúne tudo o que é preciso saber p
 18. [Variáveis de ambiente](#18-variáveis-de-ambiente)
 19. [Ordem de implementação e critérios de aceite](#19-ordem-de-implementação-e-critérios-de-aceite)
 20. [Checklist de entrega e pendências](#20-checklist-de-entrega-e-pendências)
+21. [Estado da implementação](#21-estado-da-implementação)
 
 ## 1. Base comum a todas as equipes
 
@@ -275,7 +276,7 @@ Preços, limites e versões deste guia vêm das páginas oficiais abaixo. Quem f
 
 ## 2. Ponto de partida e responsabilidades do back-end
 
-Não existe código de backend. O repositório tem apenas os `README.md` de camada em `backend/src/{domain,application,infrastructure,api,workers,bootstrap}` e `contracts/`. Tudo o que está neste guia nasce incrementalmente, no primeiro uso real.
+O backend está implementado do marco B0 ao B4, com as consultas do §11 e a observabilidade básica do §15; o que foi feito, as decisões tomadas na implementação e o que continua bloqueado estão no §21. O que depende de decisões em aberto (§20.2) só nasce depois delas.
 
 O backend tem seis responsabilidades:
 
@@ -323,29 +324,38 @@ Observações sobre a escolha:
 backend/
 ├── package.json            # "type": "module"; scripts do §4.2
 ├── tsconfig.json           # §4.3
+├── eslint.config.js        # typescript-eslint + regras de importação entre camadas (§4.1)
 ├── drizzle.config.ts
-├── migrations/             # SQL gerado pelo drizzle-kit, versionado
+├── migrations/             # 0000_initial_schema.sql (§5) e 0001_database_roles.sql (§16)
+├── test/                   # api/, application/, infrastructure/, workers/, integration/, support/
 └── src/
     ├── domain/
-    │   └── essay/          # essay.ts (agregado), quota-period.ts (função pura)
+    │   └── essay/          # quota-period.ts (função pura) e seu teste
     ├── application/
-    │   ├── commands/       # submit-essay.handler.ts, answer-question.handler.ts, ...
-    │   ├── queries/        # get-essay.handler.ts, get-entitlements.handler.ts, ...
-    │   ├── events/         # essay-view.projector.ts, performance.projector.ts, ...
-    │   └── ports/          # ai.port.ts, queue.port.ts, entitlement.port.ts, ...
+    │   ├── auth/           # login, refresh e logout (HTTP síncrono, fora do modelo de comandos)
+    │   ├── commands/       # accept-command.ts (idempotência) e um *.handler.ts por comando
+    │   ├── queries/        # um *.handler.ts por consulta
+    │   ├── events/         # essay-view.projector.ts, mock-exam-view.projector.ts
+    │   ├── ports/          # ai, auth, command-log, entitlement, essay-store, logger, outbox,
+    │   │                   # processed-events, queue, read-models, study-records, unit-of-work
+    │   ├── errors.ts       # erros de regra traduzidos pela api
+    │   └── messages.ts     # união dos eventos do catálogo + MessageDeadLettered
     ├── infrastructure/
+    │   ├── auth/           # oidc.identity-provider.adapter.ts, jwt.access-token.adapter.ts
     │   ├── queue/          # bullmq.queue.adapter.ts, connections.ts
-    │   ├── persistence/    # schema.ts (Drizzle), *.repository.ts, outbox.repository.ts
-    │   └── ai/             # openai.ai.adapter.ts, prompts/essay-correction.v1.ts
-    ├── api/                # server.ts, routes/commands/*.ts, routes/queries/*.ts, errors.ts
+    │   ├── persistence/    # schema.ts (Drizzle), *.repository.ts, unit-of-work.ts
+    │   ├── observability/  # logger.ts (pino com redact), metrics.ts (prom-client)
+    │   └── ai/             # openai.ai.adapter.ts, prompts/essay-correction.prompt.ts
+    ├── api/                # server.ts, errors.ts, routes/{auth,health}.routes.ts,
+    │                       # routes/commands/*.ts, routes/queries/*.ts
     ├── workers/
     │   ├── essay-correction/  # essay-correction.worker.ts
-    │   ├── mock-exam-processing/
-    │   ├── projections/
-    │   ├── notifications/     # envia push (exige P4 aprovada)
-    │   └── relay/             # outbox-relay.ts
-    └── bootstrap/          # api.ts, worker.ts, relay.ts, migrate.ts (composition roots)
+    │   ├── projections/       # projections.worker.ts
+    │   └── relay/             # outbox-relay.ts (relay, reconciliador e limpeza), routes.ts
+    └── bootstrap/          # api.ts, worker.ts, relay.ts, migrate.ts, env.ts, shutdown.ts
 ```
+
+`workers/mock-exam-processing/` e `workers/notifications/` nascem quando as regras de simulado e a proposta P4 forem definidas.
 
 ### 4.1 Regras de dependência (resumo do §10.3 da arquitetura)
 
@@ -1194,8 +1204,10 @@ Somente nomes: valores nunca entram no repositório, nos logs nem nesta document
 | `ESSAY_MONTHLY_LIMIT` | Cota por mês | 4 (D9) |
 | `ESSAY_MAX_CHARS` | Tamanho do texto | **Definido pelo produto; sem padrão** |
 | `ESSAY_WORKER_CONCURRENCY`, `ESSAY_RATE_LIMIT_PER_MIN` | Worker | Propostas iniciais a calibrar |
+| `AI_PROMPT_VERSION` | Versão do prompt de correção usada pelo Worker | Precisa estar registrada em `infrastructure/ai/prompts`; sem ela a fila `essay-correction` não é consumida |
 | `METRICS_PORT` | Métricas | Porta interna |
-| `SENTRY_DSN` | Erros | Público por natureza |
+| `SENTRY_DSN` | Erros | Público por natureza; entra com o Sentry no B6 |
+| `TEST_DATABASE_URL`, `TEST_REDIS_URL` | Testes de integração | Só instâncias descartáveis: os testes recriam os esquemas e esvaziam o Redis |
 
 ## 19. Ordem de implementação e critérios de aceite
 
@@ -1235,3 +1247,58 @@ Os marcos `F#` e `D#` referem-se aos guias do Front-End e do DevOps.
 | Fila `notifications`, comando `RegisterPushToken` e consulta `GetEssayList` | Aprovação | Push e histórico |
 | LGPD: base legal, retenção, exclusão e consentimento | Produto e jurídico | Dados pessoais em produção |
 | Janela da cota (mês corrido) e política de tolerância do relógio | Produto | B4 |
+
+## 21. Estado da implementação
+
+Atualizado em 02/11/2026. Aprovados pelo responsável pelo produto nesta etapa: P1 (login com Google e Apple), P2, P3, P6, a parte de backend de P7 e P8 (Vitest, `lint` e `typecheck` em `backend/`) e a exceção de `GetEntitlements` (§14). O Sentry (P9) ficou para o B6.
+
+### 21.1 Marcos
+
+| Marco | Situação | Observação |
+| --- | --- | --- |
+| B0 | Feito | `npm run typecheck`, `lint` e `test` passam em `backend/`; o Node 24 executa `src/bootstrap/*.ts` direto. O Compose de desenvolvimento (`infra/compose.dev.yml`) é do guia de DevOps. |
+| B1 | Feito | Migrações `0000_initial_schema` (§5) e `0001_database_roles` (§16). O drizzle-kit não gera reversão: as migrações só avançam (expandir e depois contrair). |
+| B2 | Feito | O login real em aparelho depende do app (F#) e dos identificadores de cliente do Google e da Apple. |
+| B3 | Feito | O projetor de desempenho está bloqueado (§21.3). |
+| B4 | Feito, exceto a chamada real à IA | Faltam o prompt e a rubrica do produto e a confirmação do formato de saída do `gpt-6.1-terra`. |
+| B5 | Parcial | `CompleteMockExam`, evento, roteamento e projeção `mock_exam_view` existem; o Worker de simulados espera as regras de simulado. |
+| B6 | Parcial | Logs, métricas e papéis de banco feitos; Sentry, alertas e freio orçamentário pendentes. |
+| B7 | Não iniciado | Depende do D3 (VM). |
+
+### 21.2 Decisões tomadas na implementação
+
+- **Dependências.** Além da pilha do §3 entraram `@types/node` (exigido pelo `tsconfig.json` do §4.3) e `vite` (dependência par obrigatória do Vitest 5, que não a instala sozinho). `@fastify/cors` não foi instalado, porque o CORS fica desligado (§12.4).
+- **Configuração do Vitest.** Os imports de `@contracts/*` são só de tipo e somem antes da execução, então os testes não precisam do alias. O `vitest.config.ts` só desliga a execução de arquivos em paralelo, porque os testes de integração recriam os esquemas do mesmo banco de teste.
+- **Regras de camada no lint.** O `eslint.config.js` aplica as regras do §4.1 com `no-restricted-imports`. `application` e `workers` usam só portas (`QueuePort`, `Logger`, `AiPort`); BullMQ, pino e o SDK da OpenAI ficam em `infrastructure`.
+- **`NOT_FOUND` no `ErrorCode`.** O `404` de `GetEssay` (§1.7) precisava de um código, que foi adicionado em `contracts/api-error.ts`. O §1.7 dos guias de Front-End e DevOps deve receber a mesma linha.
+- **Códigos de falha da redação.** São `AI_REJECTED`, `AI_INVALID_OUTPUT` e `PROCESSING_FAILED` (`EssayFailureCode` em `contracts/queries/get-essay.query.ts`). `GetEssay` expõe só o código, nunca o erro do provedor.
+- **Identificadores reutilizados.** Um `essayId` ou `mockExamId` já usado por outro comando é recusado com `400 VALIDATION_FAILED`, e a transação inteira é desfeita (a cota volta).
+- **Respostas e rotina.** `AnswerQuestion` e `RecordRoutineProgress` usam o `commandId` como identificador do registro, porque um comando registra um fato. `answered_at` e `recorded_at` vêm do `issuedAt`, porque o aluno pode ter agido offline. A tolerância a relógio absurdo continua com o produto (§12.2).
+- **Projeções leem o write store.** Os projetores de `essay_view` e `mock_exam_view` carregam o estado atual do agregado e aplicam a versão dele. Assim, o resultado da correção não passa pelo Redis e um evento atrasado não regride a linha.
+- **Prompt de correção.** `infrastructure/ai/prompts/essay-correction.prompt.ts` define o formato de uma versão de prompt (instruções, montagem da entrada, formato de saída e esquema `zod` do resultado) e um registro vazio. Sem a versão de `AI_PROMPT_VERSION` registrada, o Worker não consome `essay-correction`, e as redações aceitas aguardam na fila.
+- **Readiness.** `/readyz` testa Postgres e Redis, como pede o §12.1. Com o Redis fora do ar, a API continua aceitando comandos, mas `/readyz` responde `503`; o healthcheck do DevOps deve levar isso em conta.
+- **Limite de taxa** em memória por processo: 300 por minuto global e 20 por minuto em `/v1/auth/*`, valores a calibrar no B7. Usar o Redis faria a API depender dele.
+- **`trustProxy`** confia apenas em endereços privados (`loopback,uniquelocal`), porque a API só é alcançável pela rede interna do Compose.
+- **`bodyLimit`** é `ESSAY_MAX_CHARS × 4 + 16 KiB` (pior caso de UTF-8 mais o envelope).
+- **Papéis de banco.** A migração `0001` cria os papéis de grupo `aprova_api` (API e relay) e `aprova_worker`, sem login. Os usuários de login e as senhas ficam com o DevOps. Como a API serve comandos e consultas no mesmo processo, não há papel separado para consultas.
+- **Republicação de job falho.** Se a última tentativa falhar sem que a falha possa ser gravada (banco fora do ar) ou se o BullMQ desistir de um job travado, a redação fica em `processing`, e o job falho continua retido (`removeOnFail`) com o mesmo `jobId`. Por isso, ao publicar, o adaptador procura o job: se ele estiver falho, volta para a fila com as tentativas zeradas (`job.retry`), em vez de a publicação ser ignorada. Assim o reconciliador do §8.4 recupera o caso.
+- **Saídas inválidas da IA.** O limite (proposta: 2) conta as respostas da IA para a redação registradas em `ai_usage`, e não todas as tentativas. Tempos limite e erros `5xx` não consomem esse limite.
+- **Erros de configuração da OpenAI** (`401`, `403`, `404`: chave, permissão ou modelo) são tratados como transitórios. Eles não marcam a redação como recusada pelo conteúdo; se persistirem até a última tentativa, a redação termina como `PROCESSING_FAILED`, com a cota devolvida.
+
+### 21.3 O que continua bloqueado
+
+| Item | Bloqueio |
+| --- | --- |
+| Projetor de `performance_summary` e conteúdo de `GetPerformanceSummary` (hoje `404` até existir projeção) | Campos de desempenho definidos com o produto |
+| Campos de negócio de `AnswerQuestion`, `RecordRoutineProgress` e `CompleteMockExam` (hoje objeto JSON livre, guardado em `jsonb`) | Produto |
+| Worker `mock-exam-processing` e evento `MockExamProcessed` | Regras de simulado |
+| Prompt, rubrica, esquema do resultado e chamada real à IA | Produto e documentação do `gpt-6.1-terra` |
+| Freio orçamentário (`AI_MONTHLY_BUDGET_USD`) | Aprovação (§10.5) |
+| Sentry (P9) | Marco B6 |
+| Fila `notifications`, `RegisterPushToken` e `GetEssayList` | Aprovação de P4 e da consulta |
+| Fonte do plano Premium (quem preenche `write.entitlements`) | Produto |
+| Exclusão de conta e retenção | LGPD |
+
+### 21.4 Validação
+
+Executados em `backend/`: `npm run typecheck`, `npm run lint` e `npm test`, com 68 testes passando. Os testes de `test/integration/` só rodam com `TEST_DATABASE_URL` e `TEST_REDIS_URL` definidos. Eles cobrem a concorrência da cota, a idempotência concorrente, as migrações, o reconciliador, o `jobId` duplicado e o fluxo do §8.1 com IA falsa. Sem Docker nesta máquina, não foram executados e continuam sem verificação. A API e o Worker também foram iniciados com Postgres e Redis inacessíveis: `/healthz` respondeu `200`, `/readyz` `503` e as rotas autenticadas `401`, e `/metrics` serviu as métricas.

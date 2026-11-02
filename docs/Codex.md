@@ -7,7 +7,7 @@ As instruções operacionais compartilhadas estão em `docs/AGENTS.md`, o único
 - Aplicativo Expo 57 com React Native, React 19 e TypeScript estrito, para estudo para o Enem, a Fuvest e outros vestibulares, com apoio e correção por IA (GPT 6.1 - Terra).
 - Arquitetura EDA + CQRS com BullMQ + Redis e Workers em segundo plano; camadas em `src/` (app), `contracts/` e `backend/src/`.
 - Ponto de entrada em `index.ts`; composição em `src/app/`.
-- Projeto em estágio inicial, sem navegação, rede, persistência, autenticação, backend nem contratos implementados.
+- App em estágio inicial, sem navegação, rede, persistência nem autenticação; backend em `backend/` implementado até o marco B4 e contratos em `contracts/`.
 
 ## Convenções Ativas
 
@@ -16,7 +16,7 @@ O `AGENTS.md` orienta o Codex a:
 - realizar mudanças enxutas, baseadas no código existente e no pedido explícito;
 - respeitar as camadas e as regras de importação de `docs/ARQUITETURA.md` (§10), as implementações específicas de plataforma e os tokens visuais quando existirem;
 - não inventar questões, notas, desempenho, correções, regras de simulado ou comportamento da IA;
-- relatar a validação realmente possível: não há scripts de lint, testes ou tipos; `npx tsc --noEmit` é uma verificação manual;
+- relatar a validação realmente possível: no app não há scripts de lint, testes ou tipos (`npx tsc --noEmit` é uma verificação manual); no `backend/` existem `npm run typecheck`, `npm run lint` e `npm test`;
 - solicitar aprovação para dependências, commits, pushes e mudanças que ampliem escopo;
 - informar verificações executadas e limitações de validação.
 
