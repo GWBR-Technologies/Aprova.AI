@@ -702,7 +702,7 @@ Notas:
 - O fluxo depende dos marcos F0 (scripts do app) e B0 (scripts do backend), que já existem; sem o script, o job reprova. A senha `ci-only` é de um contêiner descartável de teste e não é segredo.
 - Os testes de integração do BullMQ rodam contra o Redis do serviço, e os de persistência contra o PostgreSQL do serviço.
 - `permissions: contents: read` e `concurrency` reduzem a superfície e o desperdício.
-- O app roda no Node 22 (versão usada para validar o bundle do Android neste trabalho) e o backend no Node 24; ambas são linhas LTS (`nodejs.org`, 30/10/2026).
+- O app e o backend rodam no Node 24 (LTS). O guia previa Node 22 para o app, mas o `package-lock.json` do app é gerado com o npm 11 (Node 24): no Node 22 (npm 10) o `npm ci` reprova com o lockfile "fora de sincronia". O README do projeto também exige Node 24.x (§21.2).
 
 ### 10.2 Proteção de ramos e hábitos
 
@@ -1039,7 +1039,7 @@ Atualizado em 02/11/2026. A camada de DevOps foi implementada no repositório; e
 
 ### 21.2 Desvios do guia
 
-1. **CI (§10.1).** O job `app` roda `lint`, `typecheck` e `test` e o job `backend` roda `typecheck`, `lint` e `test`, todos obrigatórios (os scripts chegaram com os PRs #1 e #2). Os testes de integração do backend usam `TEST_DATABASE_URL` e `TEST_REDIS_URL`, apontando para os serviços descartáveis do job. A entrada `npm` de `backend/` está no Dependabot.
+1. **CI (§10.1).** O app usa Node 24 (e não 22, ver §10.1), no CI e no `mobile-build`. O job `app` roda `lint`, `typecheck` e `test` e o job `backend` roda `typecheck`, `lint` e `test`, todos obrigatórios (os scripts chegaram com os PRs #1 e #2). Os testes de integração do backend usam `TEST_DATABASE_URL` e `TEST_REDIS_URL`, apontando para os serviços descartáveis do job. A entrada `npm` de `backend/` está no Dependabot.
 2. **Local dos arquivos na VM (§5).** O repositório é clonado em `/opt/aprova/repo` e o Compose roda a partir de `/opt/aprova/repo/infra`. Os scripts não dependem do caminho. Atualizar `infra/` na VM é uma ação manual (`git pull --ff-only`), sem aprovação automática de mudanças de infraestrutura.
 3. **SSH e firewall (§5).** O arquivo do SSH se chama `00-aprova-hardening.conf` porque o `sshd` usa o primeiro valor lido e o `50-cloud-init.conf` costuma reativar a senha. As regras de 80, 443 e UDP 443 são gravadas direto em `/etc/iptables/rules.v4`: `netfilter-persistent save` persistiria também as cadeias do Docker. O script se recusa a endurecer o SSH sem uma chave autorizada para o usuário de operação.
 4. **Imagens fixadas por versão menor (§6.2, §6.3).** `node:24.22-bookworm-slim`, `postgres:18.6`, `redis:8.2`, `caddy:2.11`, `grafana/alloy:v1.21.3`, `prom/node-exporter:v1.12.1`, `redis_exporter:v1.96.0` e `postgres-exporter:v0.20.1`, todas com `arm64` confirmado no Docker Hub em 02/11/2026. O Dependabot propõe as atualizações.
