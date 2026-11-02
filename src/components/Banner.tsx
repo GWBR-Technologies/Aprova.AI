@@ -28,16 +28,19 @@ export function Banner({ tone, message, announce = false, children }: BannerProp
   const style = toneStyle[tone];
 
   return (
-    <View
-      accessibilityRole={tone === 'error' ? 'alert' : undefined}
-      accessible
-      accessibilityLabel={`${style.label}. ${message}`}
-      style={[styles.container, { borderColor: style.border }]}
-    >
-      <AppText variant="caption" tone={style.text}>
-        {style.label}
-      </AppText>
-      <AppText>{message}</AppText>
+    <View style={[styles.container, { borderColor: style.border }]}>
+      {/* Só o texto forma o grupo acessível; os filhos (botões) continuam focáveis por leitores de tela. */}
+      <View
+        accessible
+        accessibilityRole={tone === 'error' ? 'alert' : undefined}
+        accessibilityLabel={`${style.label}. ${message}`}
+        style={styles.text}
+      >
+        <AppText variant="caption" tone={style.text}>
+          {style.label}
+        </AppText>
+        <AppText>{message}</AppText>
+      </View>
       {children}
     </View>
   );
@@ -49,6 +52,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: Radius.md,
     padding: Spacing.three,
-    gap: Spacing.one,
+    gap: Spacing.two,
   },
+  text: { gap: Spacing.one },
 });
