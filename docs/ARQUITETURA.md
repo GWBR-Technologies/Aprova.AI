@@ -480,6 +480,7 @@ Cada item abaixo exige decisão antes de qualquer implementação que dependa de
 | Exceção: `GetEntitlements` lê o write store pela `EntitlementPort` | O plano e a cota precisam ser exatos; a alternativa são os eventos `PlanChanged` e `UserRegistered` mais uma projeção. | Proposta nos guias; aguarda aprovação. |
 | Comando `RegisterPushToken`, consulta `GetEssayList` e fila `notifications` | Catálogos de comandos e consultas (§4) e de filas (§6), para o push e o histórico de redações. | Propostas; só entram nas tabelas desta arquitetura depois de aprovadas. |
 | LGPD: base legal, retenção e exclusão | Dados enviados à IA e guardados no servidor. | Em aberto. |
+| Redação enviada como imagem, com transcrição e correção pela IA | `SubmitEssay` (hoje `text`), armazenamento do arquivo, `AiPort` com visão, custo da IA, LGPD (a foto é dado pessoal) e o estado do app. | Decidido pelo produto em 02/11/2026; contrato, armazenamento e Worker ainda não definidos (Back-End e DevOps). |
 | Executor de testes e integração contínua | Seção 12. | Proposta: Vitest (backend e `contracts/`), `jest-expo` (app) e GitHub Actions. Aprovados no app (P7 e P8): `jest-expo`, Testing Library e ESLint; Vitest e GitHub Actions aguardam aprovação. |
 
 ## 15. Guias de implementação

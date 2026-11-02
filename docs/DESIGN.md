@@ -77,8 +77,8 @@ Os estados de um comando (`queued-locally`, `sending`, `received`, `processing`,
 
 | Tela do canvas | Mostra | Arquitetura | Tratamento |
 | --- | --- | --- | --- |
-| Login | E-mail e senha, “Esqueci minha senha” e “Criar conta gratuita” | Login com Google e Apple, sem senha (proposta P1) | O app implementa Google e Apple; aguarda decisão do produto |
-| Redação — envio | Foto da folha manuscrita | `SubmitEssay` recebe `text` | O app implementa o texto; foto exige contrato novo e dependências |
+| Login | E-mail e senha, “Esqueci minha senha” e “Criar conta gratuita” | Login com Google e Apple, sem senha (proposta P1) | Decidido pelo produto (02/11/2026): só Google e Apple. As telas de e-mail e senha, de cadastro e de recuperação de senha não serão implementadas, porque exigiriam um banco remoto de credenciais, com custo e cuidados de criptografia. O canvas deve ser atualizado |
+| Redação — envio | Foto da folha manuscrita | `SubmitEssay` recebe `text` | Decidido pelo produto (02/11/2026): o aluno envia a foto da folha manuscrita; a IA transcreve o texto com a mesma formatação, corrige e devolve o resultado. Ainda não implementado: falta o contrato de envio de imagem (Back-End) e a dependência de câmera. Até lá o app envia texto |
 | Paywall e anúncios | Planos, preço e AdMob | Fonte do Premium em aberto | Não implementado |
 
 ## 10. Biblioteca de componentes

@@ -868,8 +868,8 @@ Diferenças em relação ao esboço do guia: o outbox é uma fábrica testável 
 
 | Pendência | Quem resolve | Efeito |
 | --- | --- | --- |
-| Login: o canvas mostra e-mail e senha e “Criar conta”; a arquitetura define Google e Apple (P1) | Produto | O app implementa Google e Apple |
-| Redação: o canvas mostra foto da folha manuscrita; `SubmitEssay` recebe `text` | Produto e Back-End | O app implementa texto. Foto exige contrato de envio de arquivo e dependências de câmera |
+| Login por e-mail e senha (canvas) | Produto (decidido em 02/11/2026) | Mantido só Google e Apple (P1): evita banco remoto de credenciais, custo e criptografia. O canvas deve ser atualizado |
+| Redação por foto com transcrição pela IA (decidido em 02/11/2026) | Produto, Back-End e DevOps | Falta o contrato de envio de imagem (arquivo ou URL pré-assinada), o armazenamento, o passo de transcrição no Worker e o estado de tela correspondente. No app: dependência de câmera ou galeria (não aprovada), guarda local da imagem no outbox e as telas do canvas (foto, adicionar página, tirar outra). Até lá o app envia texto |
 | Aprovação de P1, P4 e P9; comando `RegisterPushToken`; consulta `GetEssayList` | Produto | O acompanhamento de redações vem do outbox deste aparelho (7 dias) até `GetEssayList` existir |
 | Corpo de `POST /v1/auth/refresh` e `/logout` | Back-End | O app envia `{ refreshToken }` (premissa em `contracts/http/auth.ts`) |
 | Formato de `result` e `failure` de `GetEssay` e rubrica | Produto e Back-End | A tela de redação concluída avisa que o resultado ainda não é exibido |
