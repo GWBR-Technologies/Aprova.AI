@@ -1,15 +1,28 @@
+import { randomUUID } from 'node:crypto';
+
 import pino from 'pino';
 import { describe, expect, it } from 'vitest';
 
 import { buildServer, type ApiDeps } from '../../src/api/server.ts';
+import { makeAnswerQuestionHandler } from '../../src/application/commands/answer-question.handler.ts';
+import { makeCompleteMockExamHandler } from '../../src/application/commands/complete-mock-exam.handler.ts';
+import { makeRecordRoutineProgressHandler } from '../../src/application/commands/record-routine-progress.handler.ts';
 import { Unauthenticated } from '../../src/application/errors.ts';
+import { memoryStore } from '../support/memory-store.ts';
 
 import type { ApiError } from '@contracts/api-error.ts';
 
 const tokens = { accessToken: 'a', accessTokenExpiresAt: '2026-10-31T12:15:00.000Z', refreshToken: 'r' };
 
 function deps(overrides: Partial<ApiDeps> = {}): ApiDeps {
+  const store = memoryStore();
+  const commandDeps = { uow: store.uow, now: () => new Date(), newId: randomUUID };
   return {
+    commands: {
+      answerQuestion: makeAnswerQuestionHandler(commandDeps),
+      recordRoutineProgress: makeRecordRoutineProgressHandler(commandDeps),
+      completeMockExam: makeCompleteMockExamHandler(commandDeps),
+    },
     logger: pino({ level: 'silent' }),
     bodyLimitBytes: 64 * 1024,
     verifyAccessToken: async (token) => (token === 'valid' ? 'user-1' : null),
@@ -120,6 +133,55 @@ describe('erros', () => {
     const res = await app.inject({ url: '/v1/nada', headers: auth });
     expect(res.statusCode).toBe(404);
     expect(res.json<ApiError>().code).toBe('NOT_FOUND');
+  });
+});
+
+describe('comandos', () => {
+  const command = (payload: unknown, commandId = randomUUID()) => ({ commandId, issuedAt: '2026-10-31T12:00:00.000Z', payload });
+
+  it('responde 202 e repete a mesma resposta num reenvio', async () => {
+    const app = await buildServer(deps());
+    const body = command({ alternativa: 'B' });
+    const first = await app.inject({ method: 'POST', url: '/v1/commands/answer-question', headers: auth, payload: body });
+    const replay = await app.inject({ method: 'POST', url: '/v1/commands/answer-question', headers: auth, payload: body });
+
+    expect(first.statusCode).toBe(202);
+    expect(first.json()).toMatchObject({ commandId: body.commandId, status: 'accepted' });
+    expect(first.headers['idempotent-replayed']).toBeUndefined();
+    expect(replay.statusCode).toBe(202);
+    expect(replay.json()).toEqual(first.json());
+    expect(replay.headers['idempotent-replayed']).toBe('true');
+  });
+
+  it('responde 409 quando o mesmo commandId chega com outro payload', async () => {
+    const app = await buildServer(deps());
+    const commandId = randomUUID();
+    await app.inject({ method: 'POST', url: '/v1/commands/record-routine-progress', headers: auth, payload: command({ a: 1 }, commandId) });
+    const conflict = await app.inject({ method: 'POST', url: '/v1/commands/record-routine-progress', headers: auth, payload: command({ a: 2 }, commandId) });
+
+    expect(conflict.statusCode).toBe(409);
+    expect(conflict.json<ApiError>()).toMatchObject({ code: 'COMMAND_ID_CONFLICT', correlationId: commandId });
+  });
+
+  it('valida o envelope e o payload na borda', async () => {
+    const app = await buildServer(deps());
+    const badId = await app.inject({ method: 'POST', url: '/v1/commands/answer-question', headers: auth, payload: { ...command({}), commandId: '123' } });
+    const noExamId = await app.inject({ method: 'POST', url: '/v1/commands/complete-mock-exam', headers: auth, payload: command({ nota: 10 }) });
+    const noAuth = await app.inject({ method: 'POST', url: '/v1/commands/answer-question', payload: command({}) });
+
+    expect(badId.statusCode).toBe(400);
+    expect(noExamId.json<ApiError>()).toMatchObject({ code: 'VALIDATION_FAILED', details: { fields: ['payload.mockExamId'] } });
+    expect(noAuth.statusCode).toBe(401);
+  });
+
+  it('recusa mockExamId reutilizado por outro comando', async () => {
+    const app = await buildServer(deps());
+    const mockExamId = randomUUID();
+    const first = await app.inject({ method: 'POST', url: '/v1/commands/complete-mock-exam', headers: auth, payload: command({ mockExamId }) });
+    const reused = await app.inject({ method: 'POST', url: '/v1/commands/complete-mock-exam', headers: auth, payload: command({ mockExamId }) });
+
+    expect(first.statusCode).toBe(202);
+    expect(reused.statusCode).toBe(400);
   });
 });
 

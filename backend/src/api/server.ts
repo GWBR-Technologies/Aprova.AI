@@ -8,6 +8,7 @@ import type { makeGetEntitlementsHandler } from '../application/queries/get-enti
 import { Unauthenticated } from '../application/errors.ts';
 import { registerErrorHandler } from './errors.ts';
 import { type AuthHandlers, registerAuthRoutes } from './routes/auth.routes.ts';
+import { registerStudyCommands, type StudyCommandHandlers } from './routes/commands/study.commands.ts';
 import { registerHealthRoutes } from './routes/health.routes.ts';
 import { registerEntitlementsRoutes } from './routes/queries/entitlements.routes.ts';
 
@@ -26,6 +27,7 @@ export type ApiDeps = {
   verifyAccessToken: (token: string) => Promise<string | null>;
   ready: () => Promise<boolean>;
   auth: AuthHandlers;
+  commands: StudyCommandHandlers;
   queries: {
     getEntitlements: ReturnType<typeof makeGetEntitlementsHandler>;
   };
@@ -72,6 +74,7 @@ export async function buildServer(deps: ApiDeps): Promise<FastifyInstance> {
         if (!userId) throw new Unauthenticated();
         request.userId = userId;
       });
+      registerStudyCommands(scope, deps.commands);
       registerEntitlementsRoutes(scope, deps.queries.getEntitlements);
     },
     { prefix: '/v1' },
