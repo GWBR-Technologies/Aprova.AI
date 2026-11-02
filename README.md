@@ -216,7 +216,8 @@ Aprova.AI/
 ## Estado atual e limites conhecidos
 
 - **Funcionalidades:** login (Google e Apple), redação ponta a ponta com plano
-  Premium e cota, outbox local, consulta periódica e aviso por push. Questões,
+  Premium e cota, captura local da foto da folha (o envio da foto aguarda o
+  contrato), outbox local, consulta periódica e aviso por push. Questões,
   rotina, simulados e desempenho não têm tela: faltam os contratos do produto
   (`docs/IMPLEMENTACAO-FRONTEND.md`, seção 17).
 - **Suporte web:** existe o script `web`, mas `react-dom` e

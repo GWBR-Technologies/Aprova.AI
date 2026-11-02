@@ -301,6 +301,7 @@ Nenhum pacote abaixo está instalado. Cada grupo é uma proposta (P5, P7 e P8, �
 | `expo-notifications` | Push do Expo e canais Android | `npx expo install expo-notifications` | Push exige build de desenvolvimento, não o Expo Go † |
 | `@react-native-google-signin/google-signin` | Login com Google nativo | `npx expo install @react-native-google-signin/google-signin` | Exige plugin de configuração e build nativo |
 | `expo-apple-authentication` | Login com Apple | `npx expo install expo-apple-authentication` | Somente iOS |
+| `expo-camera` | Fotografar a folha da redação (aprovado em 02/11/2026) | `npx expo install expo-camera` | Plugin em `app.json` só com a permissão de câmera, sem microfone nem leitor de código de barras; exige build de desenvolvimento |
 | `@sentry/react-native` | Erros do app (P9) | `npx expo install @sentry/react-native` | Plano gratuito: 5 mil erros por mês |
 | `jest-expo`, `@testing-library/react-native` | Testes do app (P7) | `npx expo install jest-expo` e `npm install -D @testing-library/react-native` | Dependências de desenvolvimento |
 | `eslint` e `eslint-config-expo` | Script `lint` (P8) | `npx expo lint` configura na primeira execução | Conferir o resultado antes de commitar |
@@ -844,7 +845,7 @@ Atualizado em 02/11/2026. Verificação: `npm run lint`, `npm run typecheck` e `
 | F2 | Código feito, sem verificação | Sessão, refresh rotativo, login Google e Apple. Falta a API (B2), o client id do Google, `bundleIdentifier` e `package` para configurar os plugins nativos |
 | F3 | Feito | Outbox em SQLite com testes sobre SQL real (`node:sqlite`). Só o comando `SubmitEssay` existe |
 | F4 | Feito para redação | `GetEssay` e `GetEntitlements`, intervalo crescente e parada aos 5 minutos; `asOf` formatado em `useUpdatedAgo` e usado na redação concluída. Telas de estatística dependem do F7 |
-| F5 | Feito | Gate Premium, cota do servidor, envio pelo outbox, estados do §6.5, rejeições e reenvio com novo `commandId` |
+| F5 | Feito para texto; foto parcial | Gate Premium, cota do servidor, envio de texto pelo outbox, estados do §6.5, rejeições e reenvio com novo `commandId`. A captura local da foto (câmera, várias páginas, tirar outra, remover) existe em `redacao/foto`, mas o envio da foto depende do contrato |
 | F6 | Parcial | Recebimento, validação do corpo, invalidação e abertura da tela por `aprovaai://`. Falta registrar o token (depende de `RegisterPushToken` e de credenciais) |
 | F7 | Bloqueado | Faltam contratos do produto (abaixo) |
 | F8 | Não iniciado | Sem Sentry (P9 não aprovada), sem auditoria com TalkBack e VoiceOver, sem build de loja |
@@ -869,7 +870,7 @@ Diferenças em relação ao esboço do guia: o outbox é uma fábrica testável 
 | Pendência | Quem resolve | Efeito |
 | --- | --- | --- |
 | Login por e-mail e senha (canvas) | Produto (decidido em 02/11/2026) | Mantido só Google e Apple (P1): evita banco remoto de credenciais, custo e criptografia. O canvas deve ser atualizado |
-| Redação por foto com transcrição pela IA (decidido em 02/11/2026) | Produto, Back-End e DevOps | Falta o contrato de envio de imagem (arquivo ou URL pré-assinada), o armazenamento, o passo de transcrição no Worker e o estado de tela correspondente. No app: dependência de câmera ou galeria (não aprovada), guarda local da imagem no outbox e as telas do canvas (foto, adicionar página, tirar outra). Até lá o app envia texto |
+| Redação por foto com transcrição pela IA (decidido em 02/11/2026) | Produto, Back-End e DevOps | Falta o contrato de envio de imagem (arquivo ou URL pré-assinada), o armazenamento, o passo de transcrição no Worker e o estado de tela correspondente. No app falta guardar a imagem no outbox até o `202` e enviar; a captura e a revisão local já existem. Até lá o app envia texto e o botão de enviar da foto fica desabilitado com o motivo |
 | Aprovação de P1, P4 e P9; comando `RegisterPushToken`; consulta `GetEssayList` | Produto | O acompanhamento de redações vem do outbox deste aparelho (7 dias) até `GetEssayList` existir |
 | Corpo de `POST /v1/auth/refresh` e `/logout` | Back-End | O app envia `{ refreshToken }` (premissa em `contracts/http/auth.ts`) |
 | Formato de `result` e `failure` de `GetEssay` e rubrica | Produto e Back-End | A tela de redação concluída avisa que o resultado ainda não é exibido |
@@ -885,6 +886,10 @@ Diferenças em relação ao esboço do guia: o outbox é uma fábrica testável 
 `jest` e `@types/jest` (exigidos por `jest-expo`), `@react-native/jest-preset` na versão 0.86.3 (peer do `jest-expo`; a 0.88 é incompatível com o React Native 0.86) e `test-renderer` (peer do `@testing-library/react-native` 14). Todas são de desenvolvimento. `expo-doctor` aponta uma divergência de patch já existente no pacote `expo` (`57.0.24` instalado, `~57.0.31` esperado), que não foi alterada.
 
 ### 18.5 Limitações conhecidas
+
+- As fotos ficam só em memória e no cache do aparelho (`expo-camera` as salva lá). Apagá-las explicitamente exigiria `expo-file-system`, que não foi aprovado; até o envio existir, o sistema as limpa quando precisar de espaço. Como a foto é dado pessoal, isso deve ser resolvido junto com o envio.
+- A qualidade da foto é 0,9 (escolha técnica para manter o manuscrito legível); o limite de páginas e o tamanho máximo dependem do produto e do contrato.
+- A captura não foi verificada em aparelho real (permissão, lanterna e orientação).
 
 - Rascunho da redação só existe em memória; sair da tela o perde (guardá-lo em disco exigiria nova decisão de armazenamento).
 - `EssayListItem` abre uma consulta por redação enquanto ela não concluir; com muitos itens em processamento há várias consultas simultâneas.
