@@ -8,7 +8,7 @@ Este é o único `AGENTS.md` do repositório e contém as instruções compartil
 
 A arquitetura é Event-Driven Architecture + CQRS, com BullMQ + Redis para filas e Workers em segundo plano para a IA. A fonte de verdade é `docs/ARQUITETURA.md` (com o PDF `docs/ARQUITETURA.pdf`). Os guias `docs/IMPLEMENTACAO-FRONTEND.md`, `docs/IMPLEMENTACAO-BACKEND.md` e `docs/IMPLEMENTACAO-DEVOPS.md` detalham a implementação de cada equipe e derivam dela. A correção de redação por IA é exclusiva do plano Premium, com 4 correções por mês, e a regra é aplicada no servidor (D9). Recursos devem ter opção gratuita; custo só com aprovação explícita, exceto a IA (D10).
 
-O app já tem navegação (Expo Router), cliente HTTP, sessão, outbox local em SQLite, redação com plano Premium e cota, aviso por push e a identidade visual (`docs/DESIGN.md`). Ainda não há backend nem telas de questões, rotina, simulados e desempenho (faltam contratos do produto). A orientação é retrato e a interface é clara (`app.json`). O script `web` existe, mas as dependências web não estão declaradas.
+O app já tem navegação (Expo Router), cliente HTTP, sessão, outbox local em SQLite, redação com plano Premium e cota, aviso por push e a identidade visual (`docs/DESIGN.md`). Ainda não há telas de questões, rotina, simulados e desempenho (faltam contratos do produto). O backend em `backend/` está implementado até o marco B4 (estado no §21 de `docs/IMPLEMENTACAO-BACKEND.md`). A orientação é retrato e a interface é clara (`app.json`). O script `web` existe, mas as dependências web não estão declaradas.
 
 ## Arquitetura
 
@@ -67,8 +67,8 @@ Altere apenas os arquivos necessários. Não refatore, reformate ou remova códi
 
 Os scripts existentes são `npm run start`, `npm run android`, `npm run ios`, `npm run web`, `npm run lint`, `npm run typecheck` e `npm test`.
 
-- Execute `lint`, `typecheck` e `test` e relate o resultado real de cada um.
-- Não há scripts de testes de ponta a ponta nem de build de produção. Não os presuma nem os apresente como disponíveis.
+- No app (raiz), execute `npm run lint`, `npm run typecheck` e `npm test` e relate o resultado real de cada um. Não há scripts de testes de ponta a ponta nem de build de produção; não os presuma nem os apresente como disponíveis.
+- No `backend/` existem `npm run typecheck`, `npm run lint` e `npm test` (execute dentro de `backend/`); os testes de integração só rodam com `TEST_DATABASE_URL` e `TEST_REDIS_URL` apontando para instâncias descartáveis.
 - Valide na plataforma afetada somente quando houver um destino local adequado. Mudanças em componentes compartilhados exigem considerar as versões nativa e web.
 - Relate os comandos executados, resultados e o que não pôde ser validado. Não alegue sucesso sem evidência.
 

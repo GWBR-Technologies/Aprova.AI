@@ -6,7 +6,7 @@
 
 O código do app fica em `src/` (composição em `src/app/`, contextos em `src/features/`, infraestrutura do cliente em `src/core/`), os contratos compartilhados em `contracts/` e a API com os Workers em `backend/src/`. O ponto de entrada é `expo-router/entry` (`main` do `package.json`).
 
-O app já tem navegação (Expo Router), cliente HTTP, sessão, outbox local em SQLite, redação com plano Premium e cota, aviso por push e a identidade visual (`docs/DESIGN.md`). Ainda não há backend, nem telas de questões, rotina, simulados e desempenho (faltam os contratos do produto, `docs/IMPLEMENTACAO-FRONTEND.md` §17). A orientação é retrato (`app.json`).
+O app já tem navegação (Expo Router), cliente HTTP, sessão, outbox local em SQLite, redação com plano Premium e cota, aviso por push e a identidade visual (`docs/DESIGN.md`). Ainda não há telas de questões, rotina, simulados e desempenho (faltam os contratos do produto, `docs/IMPLEMENTACAO-FRONTEND.md` §17). O backend em `backend/` está implementado até o marco B4 (estado no §21 de `docs/IMPLEMENTACAO-BACKEND.md`). A orientação é retrato (`app.json`).
 
 Use `docs/AGENTS.md` como o guia compartilhado do projeto. Este arquivo adiciona os fluxos específicos disponíveis em `.claude/`.
 
@@ -74,7 +74,7 @@ Os scripts atualmente definidos são:
 | Verificação de tipos | `npm run typecheck` |
 | Testes | `npm test` |
 
-Não há scripts de testes de ponta a ponta nem de build de produção; não os presuma. Login nativo, SQLite e push exigem build de desenvolvimento, não o Expo Go.
+No app (raiz) não há scripts de testes de ponta a ponta nem de build de produção; não os presuma. Login nativo, SQLite, push e câmera exigem build de desenvolvimento, não o Expo Go. No `backend/` existem `npm run typecheck`, `npm run lint` e `npm test` (execute dentro de `backend/`); os testes de integração só rodam com `TEST_DATABASE_URL` e `TEST_REDIS_URL` apontando para instâncias descartáveis.
 
 Para uma mudança de interface, valide na plataforma afetada quando houver um destino local disponível. Para mudanças em componentes compartilhados, considere as implementações nativa e web.
 

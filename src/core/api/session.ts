@@ -1,4 +1,10 @@
-import type { AuthProvider, AuthTokens, LoginRequest, LogoutRequest, RefreshRequest } from '@contracts/http/auth';
+import type {
+  AuthTokens,
+  IdentityProvider,
+  LoginRequest,
+  LogoutRequest,
+  RefreshRequest,
+} from '@contracts/auth/auth';
 
 import { ApiRequestError } from './errors';
 import type { StoredSession, TokenStorage } from '../storage/token-storage';
@@ -73,7 +79,7 @@ export function createSession({ postAuth, storage }: SessionConfig) {
       setState(stored ? { status: 'signedIn', userId: stored.userId } : { status: 'signedOut', reason: 'none' });
     },
 
-    async signIn(provider: AuthProvider, idToken: string) {
+    async signIn(provider: IdentityProvider, idToken: string) {
       const body: LoginRequest = { provider, idToken };
       const tokens = await postAuth<AuthTokens>('/v1/auth/login', body);
       const userId = subjectOf(tokens.accessToken);

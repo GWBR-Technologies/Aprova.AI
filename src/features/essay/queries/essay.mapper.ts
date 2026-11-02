@@ -1,4 +1,4 @@
-import type { ErrorCode } from '@contracts/http/api-error';
+import type { ErrorCode } from '@contracts/api-error';
 import type { EntitlementsView } from '@contracts/queries/get-entitlements.query';
 import type { EssayView } from '@contracts/queries/get-essay.query';
 
@@ -38,7 +38,7 @@ export type EssayScreenState =
   | { kind: 'sending' }
   | { kind: 'received' }
   | { kind: 'processing'; stalled: boolean }
-  | { kind: 'completed'; result: Record<string, unknown> | undefined; asOf: string }
+  | { kind: 'completed'; result: Record<string, unknown> | null; asOf: string }
   | { kind: 'failed'; reason: EssayFailureReason };
 
 const KNOWN_CODES: readonly ErrorCode[] = [
@@ -46,6 +46,7 @@ const KNOWN_CODES: readonly ErrorCode[] = [
   'UNAUTHENTICATED',
   'PREMIUM_REQUIRED',
   'ESSAY_QUOTA_EXCEEDED',
+  'NOT_FOUND',
   'COMMAND_ID_CONFLICT',
   'RATE_LIMITED',
   'INTERNAL_ERROR',

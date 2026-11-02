@@ -1,12 +1,14 @@
 export type EssayStatus = 'processing' | 'completed' | 'failed';
 
-// GET /v1/essays/{essayId}
-// O formato de `result` depende da rubrica de correção e `failure` não tem campos
-// definidos nos guias; ambos ficam opacos até o produto e o Back-End os definirem.
+/** Motivo da falha permanente da correção; o app mostra uma mensagem e a ação de reenviar. */
+export type EssayFailureCode = 'AI_REJECTED' | 'AI_INVALID_OUTPUT' | 'PROCESSING_FAILED';
+
 export type EssayView = {
   essayId: string;
   status: EssayStatus;
-  result?: Record<string, unknown>;
-  failure?: Record<string, unknown>;
+  // Formato definido pela rubrica de correção (em aberto com o produto).
+  result: Record<string, unknown> | null;
+  failure: { code: EssayFailureCode } | null;
+  createdAt: string; // ISO 8601 em UTC
   asOf: string; // ISO 8601 em UTC
 };

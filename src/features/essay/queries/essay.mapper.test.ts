@@ -38,10 +38,12 @@ describe('toEssayAccess', () => {
 });
 
 describe('deriveEssayScreenState', () => {
-  const view = (status: EssayView['status'], result?: Record<string, unknown>): EssayView => ({
+  const view = (status: EssayView['status'], result: Record<string, unknown> | null = null): EssayView => ({
     essayId: 'e1',
     status,
     result,
+    failure: status === 'failed' ? { code: 'PROCESSING_FAILED' } : null,
+    createdAt: '2026-10-31T11:00:00Z',
     asOf,
   });
 

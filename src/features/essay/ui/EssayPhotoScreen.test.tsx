@@ -10,14 +10,15 @@ const mockRequestPermission = jest.fn(async () => undefined);
 const mockTakePicture = jest.fn();
 
 jest.mock('expo-camera', () => {
-  const React = require('react');
-  const { View } = require('react-native');
+  const React = jest.requireActual<typeof import('react')>('react');
+  const { View } = jest.requireActual<typeof import('react-native')>('react-native');
   const CameraView = React.forwardRef(
     (props: { onCameraReady?: () => void; accessibilityLabel?: string }, ref: React.Ref<unknown>) => {
+      const { onCameraReady } = props;
       React.useImperativeHandle(ref, () => ({ takePictureAsync: (options: unknown) => mockTakePicture(options) }));
       React.useEffect(() => {
-        props.onCameraReady?.();
-      }, []);
+        onCameraReady?.();
+      }, [onCameraReady]);
       return <View accessibilityLabel={props.accessibilityLabel} />;
     },
   );

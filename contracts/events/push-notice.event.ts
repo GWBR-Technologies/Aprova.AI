@@ -1,8 +1,6 @@
-export type PushNoticeType = 'EssayCorrected' | 'EssayCorrectionFailed' | 'MockExamProcessed';
-
-// Corpo do push do Expo: só um aviso para consultar de novo, nunca dado pessoal.
+// Aviso por push: só pede ao app que consulte de novo; nunca leva texto, nota ou dado pessoal.
 export type PushNotice = {
-  type: PushNoticeType;
+  type: 'EssayCorrected' | 'EssayCorrectionFailed' | 'MockExamProcessed';
   aggregateId: string;
   correlationId: string;
 };

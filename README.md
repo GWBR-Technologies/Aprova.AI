@@ -58,9 +58,13 @@ em [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md), também disponível em PDF
 ([`docs/ARQUITETURA.pdf`](docs/ARQUITETURA.pdf)). Cada equipe tem um guia de
 implementação (Front-End, Back-End e DevOps) em `docs/`, com o PDF correspondente.
 
-Hoje o repositório contém o aplicativo Expo (Expo Router, outbox local, cliente
-HTTP, sessão, redação com Premium e cota, aviso por push) e os contratos do app
-com o backend; BullMQ, Redis e o backend ainda não estão implementados.
+O aplicativo Expo (Expo Router, outbox local, cliente HTTP, sessão, redação com
+Premium e cota, aviso por push) está em `src/`. O backend (API de comandos e
+consultas, relay do outbox e Workers) está em `backend/`, com dependências e
+scripts próprios, e os contratos entre os dois estão em `contracts/`. O estado
+de cada marco e o que continua bloqueado estão no §21 de
+[`docs/IMPLEMENTACAO-BACKEND.md`](docs/IMPLEMENTACAO-BACKEND.md) e no §18 de
+[`docs/IMPLEMENTACAO-FRONTEND.md`](docs/IMPLEMENTACAO-FRONTEND.md).
 
 | Arquivo ou diretório | Responsabilidade |
 | --- | --- |
@@ -178,9 +182,11 @@ Aprova.AI/
 │   ├── rules/           # Convenções de código, dados e testes
 │   └── skills/          # Fluxos de interface e prontidão local
 ├── assets/              # Ícones e imagens
-├── backend/
-│   └── src/             # domain, application, infrastructure, api, workers, bootstrap
-├── contracts/           # Contrato app <-> backend (comandos, consultas, eventos)
+├── backend/             # API, relay e Workers (package.json e scripts próprios)
+│   ├── migrations/      # SQL versionado (drizzle-kit)
+│   ├── src/             # domain, application, infrastructure, api, workers, bootstrap
+│   └── test/            # Vitest: unitários, API e integração
+├── contracts/           # Contrato app <-> backend (comandos, consultas, eventos, auth)
 ├── docs/                # Arquitetura, guias de implementação (.md e .pdf), guias e design
 ├── src/
 │   ├── app/             # Rotas do Expo Router e layout raiz (providers)
@@ -223,10 +229,13 @@ Aprova.AI/
 - **Suporte web:** existe o script `web`, mas `react-dom` e
   `react-native-web` ainda não estão declarados nas dependências.
 - **Navegação:** Expo Router, com rotas protegidas pela sessão.
-- **Validação:** `lint`, `typecheck` e `test` existem; não há teste de ponta a
-  ponta nem verificação em aparelho real (TalkBack e VoiceOver) registrada.
-- **Arquitetura:** o app e os contratos existem; não há backend, filas nem
-  infraestrutura. As decisões em aberto estão em `docs/ARQUITETURA.md` (seção 14).
+- **Validação:** na raiz existem `npm run lint`, `npm run typecheck` e `npm test`
+  (limitado a `src/`); não há teste de ponta a ponta nem verificação em aparelho
+  real (TalkBack e VoiceOver) registrada. O `backend/` tem `npm run typecheck`,
+  `npm run lint` e `npm test` (execute dentro de `backend/`).
+- **Arquitetura:** o backend está implementado até o marco B4 e o app usa os
+  contratos de `contracts/`. As decisões em aberto estão em
+  `docs/ARQUITETURA.md` (seção 14).
 - **Design:** identidade registrada em `docs/DESIGN.md`. Poppins e Inter ainda
   não foram instaladas (dependência não aprovada); o app usa a fonte do sistema.
 

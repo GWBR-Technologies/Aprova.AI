@@ -14,16 +14,16 @@ import {
   SignInUnavailableError,
 } from '@/core/api/provider-sign-in';
 import { useSessionState } from '@/core/api/use-session';
-import type { AuthProvider } from '@contracts/http/auth';
+import type { IdentityProvider } from '@contracts/auth/auth';
 
-const getIdToken: Record<AuthProvider, () => Promise<string | null>> = {
+const getIdToken: Record<IdentityProvider, () => Promise<string | null>> = {
   google: getGoogleIdToken,
   apple: getAppleIdToken,
 };
 
 export function LoginScreen() {
   const state = useSessionState();
-  const [pending, setPending] = useState<AuthProvider | null>(null);
+  const [pending, setPending] = useState<IdentityProvider | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [appleAvailable, setAppleAvailable] = useState(false);
 
@@ -31,7 +31,7 @@ export function LoginScreen() {
     void isAppleSignInAvailable().then(setAppleAvailable);
   }, []);
 
-  async function signIn(provider: AuthProvider) {
+  async function signIn(provider: IdentityProvider) {
     setPending(provider);
     setError(null);
     try {

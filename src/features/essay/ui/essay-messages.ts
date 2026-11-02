@@ -27,6 +27,7 @@ export function failureCopy(reason: EssayFailureReason, quotaLimit: number | nul
       const renewal = resetsAt ? ` Renova em ${formatDayMonth(resetsAt)}.` : '';
       return { message: `Você usou ${used} deste mês.${renewal}`, recovery: 'wait' };
     }
+    case 'NOT_FOUND':
     case 'COMMAND_ID_CONFLICT':
       return { message: 'Algo deu errado ao enviar. Tente novamente.', recovery: 'resend' };
     case 'RATE_LIMITED':

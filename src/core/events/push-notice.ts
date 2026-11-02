@@ -1,6 +1,6 @@
-import type { PushNotice, PushNoticeType } from '@contracts/events/push-notice.event';
+import type { PushNotice } from '@contracts/events/push-notice.event';
 
-const TYPES: readonly PushNoticeType[] = ['EssayCorrected', 'EssayCorrectionFailed', 'MockExamProcessed'];
+const TYPES: readonly PushNotice['type'][] = ['EssayCorrected', 'EssayCorrectionFailed', 'MockExamProcessed'];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**

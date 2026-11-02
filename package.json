@@ -50,6 +50,9 @@
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/src/$1",
       "^@contracts/(.*)$": "<rootDir>/contracts/$1"
-    }
+    },
+    "roots": [
+      "<rootDir>/src"
+    ]
   }
 }

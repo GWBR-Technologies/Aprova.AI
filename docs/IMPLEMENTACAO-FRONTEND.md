@@ -854,7 +854,7 @@ Atualizado em 02/11/2026. Verificação: `npm run lint`, `npm run typecheck` e `
 
 | Caminho | Responsabilidade |
 | --- | --- |
-| `contracts/` | Tipos de comando, consulta, erro, autenticação e aviso de push |
+| `contracts/` | Tipos de comando, consulta, evento, erro (`api-error.ts`), autenticação (`auth/auth.ts`) e aviso de push; mantidos pelo Back-End, o app só os importa (`import type`) |
 | `src/core/api/` | `client.ts` (fetch com timeout, HTTPS, 401 com renovação única), `errors.ts`, `session.ts`, `http.ts` (instâncias), `provider-sign-in.ts`, `query-client.ts` |
 | `src/core/outbox/` | `outbox.ts` (fábrica com banco e envio injetados), `instance.ts` (instância com `expo-sqlite`), `triggers.ts` (abertura, `AppState` e `NetInfo`) |
 | `src/core/events/` | `poll-interval.ts`, `push-notice.ts` e `push-listeners.ts` |
@@ -872,7 +872,6 @@ Diferenças em relação ao esboço do guia: o outbox é uma fábrica testável 
 | Login por e-mail e senha (canvas) | Produto (decidido em 02/11/2026) | Mantido só Google e Apple (P1): evita banco remoto de credenciais, custo e criptografia. O canvas deve ser atualizado |
 | Redação por foto com transcrição pela IA (decidido em 02/11/2026) | Produto, Back-End e DevOps | Falta o contrato de envio de imagem (arquivo ou URL pré-assinada), o armazenamento, o passo de transcrição no Worker e o estado de tela correspondente. No app falta guardar a imagem no outbox até o `202` e enviar; a captura e a revisão local já existem. Até lá o app envia texto e o botão de enviar da foto fica desabilitado com o motivo |
 | Aprovação de P1, P4 e P9; comando `RegisterPushToken`; consulta `GetEssayList` | Produto | O acompanhamento de redações vem do outbox deste aparelho (7 dias) até `GetEssayList` existir |
-| Corpo de `POST /v1/auth/refresh` e `/logout` | Back-End | O app envia `{ refreshToken }` (premissa em `contracts/http/auth.ts`) |
 | Formato de `result` e `failure` de `GetEssay` e rubrica | Produto e Back-End | A tela de redação concluída avisa que o resultado ainda não é exibido |
 | Campos de `AnswerQuestion`, `RecordRoutineProgress` e `CompleteMockExam`; formato de `GetPerformanceSummary`, `GetMockExamHistory` e `GetMockExamResult`; limites de texto | Produto | Sem telas de questões, rotina, simulados e desempenho |
 | Fonte do Premium e oferta; política de privacidade e LGPD | Produto e jurídico | `PremiumGate` só informa que o recurso é Premium |

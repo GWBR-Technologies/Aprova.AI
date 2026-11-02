@@ -1,4 +1,4 @@
-import type { ApiError } from '@contracts/http/api-error';
+import type { ApiError } from '@contracts/api-error';
 
 import { ApiRequestError, parseRetryAfter } from './errors';
 
