@@ -6,8 +6,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { EssayComposerScreen } from './EssayComposerScreen';
 
-const mockApiGet = jest.fn();
-const mockEnqueue = jest.fn(async () => undefined);
+const mockApiGet = jest.fn<Promise<unknown>, [string]>();
+const mockEnqueue = jest.fn(async (_input: unknown) => undefined);
 
 jest.mock('@/core/api/http', () => ({ apiGet: (path: string) => mockApiGet(path) }));
 jest.mock('@/core/api/use-session', () => ({

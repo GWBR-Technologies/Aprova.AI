@@ -4,8 +4,8 @@ import { Alert } from 'react-native';
 import { AccountScreen } from './AccountScreen';
 
 const mockSignOut = jest.fn(async () => undefined);
-const mockCountPending = jest.fn();
-const mockDiscardAll = jest.fn(async () => undefined);
+const mockCountPending = jest.fn<Promise<number>, [string]>();
+const mockDiscardAll = jest.fn(async (_userId: string) => undefined);
 
 jest.mock('@/core/api/http', () => ({ session: { signOut: () => mockSignOut() } }));
 jest.mock('@/core/api/use-session', () => ({
