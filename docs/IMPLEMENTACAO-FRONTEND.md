@@ -444,6 +444,7 @@ CREATE TABLE IF NOT EXISTS outbox (
   command_id      TEXT PRIMARY KEY,
   user_id         TEXT NOT NULL,
   route           TEXT NOT NULL,     -- ex.: 'submit-essay'
+  resource_id     TEXT,              -- id do recurso criado (ex.: essayId); não é dado pessoal
   body            TEXT,              -- JSON do envelope; nulo depois de 'received'
   state           TEXT NOT NULL,     -- queued-locally | sending | received | failed
   attempts        INTEGER NOT NULL DEFAULT 0,
@@ -589,16 +590,22 @@ A proposta P4 combina duas fontes, e o app funciona corretamente com apenas uma 
 Enquanto o app está em primeiro plano e o recurso está em `received` ou `processing`, a consulta repete com intervalos crescentes: 3 s, 5 s, 8 s, 13 s, 20 s e depois 30 s (valores iniciais a calibrar). Após 5 minutos sem conclusão, a consulta pausa e a tela diz “Ainda estamos processando. Avisaremos quando terminar.” O app em segundo plano não consulta; quem avisa é o push.
 
 ```ts
-// src/core/events/poll-interval.ts
+// src/core/events/poll-interval.ts (implementado; `attempt` = consultas já concluídas)
 const STEPS_MS = [3_000, 5_000, 8_000, 13_000, 20_000, 30_000];
 const GIVE_UP_AFTER_MS = 5 * 60_000;
 
-export function nextPollInterval(updateCount: number): number | false {
-  const elapsed = STEPS_MS.slice(0, updateCount).reduce((a, b) => a + b, 0);
+export function nextPollInterval(attempt: number): number | false {
+  const last = STEPS_MS.length - 1;
+  const stepsTaken = Math.min(attempt, STEPS_MS.length);
+  const elapsed =
+    STEPS_MS.slice(0, stepsTaken).reduce((total, step) => total + step, 0) +
+    Math.max(0, attempt - STEPS_MS.length) * STEPS_MS[last];
   if (elapsed >= GIVE_UP_AFTER_MS) return false;
-  return STEPS_MS[Math.min(updateCount, STEPS_MS.length - 1)];
+  return STEPS_MS[Math.min(attempt, last)];
 }
 ```
+
+O esboço original somava no máximo os seis primeiros degraus (79 s) e por isso nunca parava aos 5 minutos; a versão acima conta também as tentativas extras de 30 s. Além disso o contador usa `dataUpdateCount + errorUpdateCount`: durante o `404` transitório a consulta falha ou devolve `null`, e só contar atualizações com dado manteria o intervalo preso em 3 s.
 
 ### 8.2 Push do Expo
 
@@ -823,3 +830,63 @@ Os marcos `B#` e `D#` referem-se aos guias do Back-End e do DevOps. Cada marco s
 | Fonte do plano Premium e oferta | Produto | `PremiumGate` real |
 | Política de privacidade, consentimento e exclusão (LGPD) | Produto e jurídico | Publicação e conta |
 | Biblioteca de gráficos | Aprovação | Gráficos em F7 |
+
+## 18. Estado da implementação
+
+Atualizado em 02/11/2026. Verificação: `npm run lint`, `npm run typecheck` e `npm test` passam; `npx expo export` gera os bundles de Android e iOS. **Nada foi verificado em aparelho real** (login nativo, SQLite, push e leitores de tela dependem de build de desenvolvimento).
+
+### 18.1 Marcos
+
+| Marco | Estado | Observações |
+| --- | --- | --- |
+| F0 | Feito | `.gitignore` cobre `.env`; aliases; scripts `lint`, `typecheck` e `test`; dependências de P5, P7 e P8 (sem Sentry, que é P9) |
+| F1 | Feito | `theme.ts` (identidade em `docs/DESIGN.md`), componentes, cliente HTTP com classificação de erro e renovação única, Expo Router |
+| F2 | Código feito, sem verificação | Sessão, refresh rotativo, login Google e Apple. Falta a API (B2), o client id do Google, `bundleIdentifier` e `package` para configurar os plugins nativos |
+| F3 | Feito | Outbox em SQLite com testes sobre SQL real (`node:sqlite`). Só o comando `SubmitEssay` existe |
+| F4 | Feito para redação | `GetEssay` e `GetEntitlements`, intervalo crescente e parada aos 5 minutos; `asOf` formatado em `useUpdatedAgo` e usado na redação concluída. Telas de estatística dependem do F7 |
+| F5 | Feito | Gate Premium, cota do servidor, envio pelo outbox, estados do §6.5, rejeições e reenvio com novo `commandId` |
+| F6 | Parcial | Recebimento, validação do corpo, invalidação e abertura da tela por `aprovaai://`. Falta registrar o token (depende de `RegisterPushToken` e de credenciais) |
+| F7 | Bloqueado | Faltam contratos do produto (abaixo) |
+| F8 | Não iniciado | Sem Sentry (P9 não aprovada), sem auditoria com TalkBack e VoiceOver, sem build de loja |
+
+### 18.2 Mapa do código
+
+| Caminho | Responsabilidade |
+| --- | --- |
+| `contracts/` | Tipos de comando, consulta, erro, autenticação e aviso de push |
+| `src/core/api/` | `client.ts` (fetch com timeout, HTTPS, 401 com renovação única), `errors.ts`, `session.ts`, `http.ts` (instâncias), `provider-sign-in.ts`, `query-client.ts` |
+| `src/core/outbox/` | `outbox.ts` (fábrica com banco e envio injetados), `instance.ts` (instância com `expo-sqlite`), `triggers.ts` (abertura, `AppState` e `NetInfo`) |
+| `src/core/events/` | `poll-interval.ts`, `push-notice.ts` e `push-listeners.ts` |
+| `src/core/storage/` | `token-storage.ts` (refresh token no SecureStore) |
+| `src/features/essay/` | `commands/`, `queries/` (mapeador, estado de tela, chaves), `events/` e `ui/` |
+| `src/features/account/` | Login e conta (sair com confirmação quando há envios pendentes) |
+| `src/components/`, `src/hooks/`, `src/constants/theme.ts` | UI compartilhada, formatadores e tokens |
+
+Diferenças em relação ao esboço do guia: o outbox é uma fábrica testável e os guias de importação usam `@/core/outbox/instance` (não `outbox`); a tabela ganhou a coluna `resource_id`, porque depois do `202` o `body` é apagado e o app perderia o `essayId`; a seleção do outbox é FIFO estrito (um comando que aguarda o atraso bloqueia os mais novos); um `401` depois da tentativa de renovação mantém o comando na fila, em vez de marcá-lo como `failed`.
+
+### 18.3 Pendências que exigem decisão ou outra equipe
+
+| Pendência | Quem resolve | Efeito |
+| --- | --- | --- |
+| Login: o canvas mostra e-mail e senha e “Criar conta”; a arquitetura define Google e Apple (P1) | Produto | O app implementa Google e Apple |
+| Redação: o canvas mostra foto da folha manuscrita; `SubmitEssay` recebe `text` | Produto e Back-End | O app implementa texto. Foto exige contrato de envio de arquivo e dependências de câmera |
+| Aprovação de P1, P4 e P9; comando `RegisterPushToken`; consulta `GetEssayList` | Produto | O acompanhamento de redações vem do outbox deste aparelho (7 dias) até `GetEssayList` existir |
+| Corpo de `POST /v1/auth/refresh` e `/logout` | Back-End | O app envia `{ refreshToken }` (premissa em `contracts/http/auth.ts`) |
+| Formato de `result` e `failure` de `GetEssay` e rubrica | Produto e Back-End | A tela de redação concluída avisa que o resultado ainda não é exibido |
+| Campos de `AnswerQuestion`, `RecordRoutineProgress` e `CompleteMockExam`; formato de `GetPerformanceSummary`, `GetMockExamHistory` e `GetMockExamResult`; limites de texto | Produto | Sem telas de questões, rotina, simulados e desempenho |
+| Fonte do Premium e oferta; política de privacidade e LGPD | Produto e jurídico | `PremiumGate` só informa que o recurso é Premium |
+| `bundleIdentifier`, `package`, client id do Google, credenciais do Firebase e da Apple, `projectId` do EAS | Produto e DevOps | Plugins nativos e token de push não configurados em `app.json` |
+| `EXPO_PUBLIC_API_URL` de desenvolvimento | DevOps | Sem ela o cliente falha na primeira chamada |
+| Poppins e Inter; biblioteca de gráficos; Gluestack citado no Design System | Aprovação | App usa fonte do sistema, `StyleSheet` e barras próprias |
+| Variantes de cor `successText`, `warningText` e `errorText`; texto escuro no botão coral | Design | Necessárias para contraste AA (ver `docs/DESIGN.md`) |
+
+### 18.4 Dependências adicionadas além das listadas no §3
+
+`jest` e `@types/jest` (exigidos por `jest-expo`), `@react-native/jest-preset` na versão 0.86.3 (peer do `jest-expo`; a 0.88 é incompatível com o React Native 0.86) e `test-renderer` (peer do `@testing-library/react-native` 14). Todas são de desenvolvimento. `expo-doctor` aponta uma divergência de patch já existente no pacote `expo` (`57.0.24` instalado, `~57.0.31` esperado), que não foi alterada.
+
+### 18.5 Limitações conhecidas
+
+- Rascunho da redação só existe em memória; sair da tela o perde (guardá-lo em disco exigiria nova decisão de armazenamento).
+- `EssayListItem` abre uma consulta por redação enquanto ela não concluir; com muitos itens em processamento há várias consultas simultâneas.
+- Um comando `submit-essay` descartado depois de o servidor já tê-lo aceito não cancela a correção.
+- Os testes de interface usam mocks de módulo para rede e outbox; o SQL do outbox é testado com `node:sqlite`, que não é o mesmo motor do `expo-sqlite`.
