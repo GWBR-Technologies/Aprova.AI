@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { makeSubmitEssayHandler } from '../../src/application/commands/submit-essay.handler.ts';
 import type { AiPort } from '../../src/application/ports/ai.port.ts';
+import { PermanentFailure } from '../../src/application/ports/queue.port.ts';
 import { makeGetEssayHandler } from '../../src/application/queries/get-essay.handler.ts';
 import { createDatabase, type Database } from '../../src/infrastructure/persistence/database.ts';
 import { readStore } from '../../src/infrastructure/persistence/read-models.repository.ts';
@@ -26,6 +27,15 @@ const dbUrl = process.env.TEST_DATABASE_URL;
 const redisUrl = process.env.TEST_REDIS_URL;
 const logger = pino({ level: 'silent' });
 
+async function waitFor(check: () => Promise<boolean>, timeoutMs = 10_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await check()) return;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  throw new Error('Condição não atingida no tempo limite');
+}
+
 describe.skipIf(!dbUrl || !redisUrl)('ponta a ponta: envio e correção de redação', () => {
   let db: Database;
   let queue: ReturnType<typeof bullmqQueue>;
@@ -38,6 +48,8 @@ describe.skipIf(!dbUrl || !redisUrl)('ponta a ponta: envio e correção de reda�
     await db.execute(sql`DROP SCHEMA IF EXISTS "drizzle" CASCADE`);
     await migrate(db, { migrationsFolder: fileURLToPath(new URL('../../migrations', import.meta.url)) });
     producer = createProducerConnection(redisUrl ?? '', logger);
+    // Sem fila offline, o produtor recusa comandos até conectar.
+    await new Promise((resolve) => producer.once('ready', resolve));
     await producer.flushdb();
     queue = bullmqQueue({ producer, createWorkerConnection: () => createWorkerConnection(redisUrl ?? '', logger), logger });
   });
@@ -97,6 +109,40 @@ describe.skipIf(!dbUrl || !redisUrl)('ponta a ponta: envio e correção de reda�
     expect(status).toBe('completed');
     await expect(getEssay(userId, essayId)).resolves.toMatchObject({ result: { resumo: 'ok' }, failure: null });
   }, 30_000);
+
+  it('republicar um job que falhou de vez o devolve à fila com as tentativas zeradas', async () => {
+    const message = {
+      eventId: randomUUID(),
+      type: 'MockExamCompleted' as const,
+      version: 1,
+      occurredAt: new Date().toISOString(),
+      aggregateId: randomUUID(),
+      aggregateVersion: 1,
+      correlationId: randomUUID(),
+      causationId: randomUUID(),
+      payload: { mockExamId: randomUUID(), userId: randomUUID() },
+    };
+    const jobId = `MockExamCompleted_${message.aggregateId}_${message.correlationId}`;
+    let deliveries = 0;
+    const consumer = queue.port.consume(
+      'mock-exam-processing',
+      async () => {
+        deliveries += 1;
+        throw new PermanentFailure('falha de teste');
+      },
+      { concurrency: 1 },
+    );
+    const raw = new Queue('mock-exam-processing', { connection: producer });
+
+    await queue.port.publish('mock-exam-processing', message, { jobId });
+    await waitFor(async () => (await raw.getJob(jobId))?.isFailed() ?? false);
+    await queue.port.publish('mock-exam-processing', message, { jobId });
+    await waitFor(async () => deliveries === 2 && ((await raw.getJob(jobId))?.isFailed() ?? false));
+
+    expect(deliveries).toBe(2);
+    await consumer.close();
+    await raw.close();
+  });
 
   it('publicação duplicada com o mesmo jobId é ignorada pelo BullMQ', async () => {
     const message = {
