@@ -24,6 +24,7 @@ Guia para a equipe de infraestrutura, integração e entrega contínuas e opera�
 18. [Runbooks](#18-runbooks)
 19. [Ordem de implementação e critérios de aceite](#19-ordem-de-implementação-e-critérios-de-aceite)
 20. [Checklist de go-live e pendências](#20-checklist-de-go-live-e-pendências)
+21. [Estado da implementação e desvios](#21-estado-da-implementação-e-desvios)
 
 ## 1. Base comum a todas as equipes
 
@@ -275,7 +276,7 @@ Preços, limites e versões deste guia vêm das páginas oficiais abaixo. Quem f
 
 ## 2. Ponto de partida e responsabilidades do DevOps
 
-Não existe infraestrutura, pipeline nem contêiner. O repositório não tem `.github/`, `infra/`, `eas.json` nem `Dockerfile`. As duas últimas pastas nascem no primeiro uso (§10.2 da arquitetura). O que existe: um repositório **público**, as contas de desenvolvedor da Apple e do Google Play (D12) e um domínio na Hostinger (D13).
+Em 30/10/2026 não existia infraestrutura, pipeline nem contêiner: o repositório não tinha `.github/`, `infra/`, `eas.json` nem `Dockerfile`. Em 02/11/2026 esses arquivos foram criados (§21). O que existia no ponto de partida: um repositório **público**, as contas de desenvolvedor da Apple e do Google Play (D12) e um domínio na Hostinger (D13).
 
 As responsabilidades são sete:
 
@@ -368,14 +369,14 @@ Todo o procedimento vira o script `infra/scripts/bootstrap-host.sh` (idempotente
 
 - **Usuários.** Um usuário de operação com `sudo` e um usuário `deploy` sem `sudo`, dono de `/opt/aprova`. Login de `root` por SSH desabilitado.
 - **SSH.** `PasswordAuthentication no`, `PermitRootLogin no`, somente chaves. A porta 22 só aceita os IPs da equipe na rede da Oracle (§4.2).
-- **Firewall do host.** As imagens Ubuntu da Oracle costumam trazer regras de `iptables` que bloqueiam 80 e 443 mesmo com a regra de rede aberta no console †. Verifique com `sudo iptables -L INPUT -n --line-numbers` e ajuste de forma persistente (`netfilter-persistent save`). Atenção: portas publicadas pelo Docker contornam o `ufw`; por isso **só o Caddy** publica portas.
+- **Firewall do host.** As imagens Ubuntu da Oracle costumam trazer regras de `iptables` que bloqueiam 80 e 443 mesmo com a regra de rede aberta no console †. Verifique com `sudo iptables -L INPUT -n --line-numbers` e ajuste de forma persistente (o script grava as regras em `/etc/iptables/rules.v4`, ver §21.2). Atenção: portas publicadas pelo Docker contornam o `ufw`; por isso **só o Caddy** publica portas.
 - **Atualizações.** `unattended-upgrades` para correções de segurança; janela mensal para atualizações maiores, com a imagem dos contêineres fixada.
 - **fail2ban** para SSH.
 - **Hora.** Sincronização de relógio ativa (os tokens e a cota dependem de hora correta).
 - **Memória virtual.** 2 GB de swap como rede de segurança.
 - **Ajustes para o Redis.** `vm.overcommit_memory = 1` e página enorme transparente desabilitada, que são as duas recomendações que o próprio Redis emite no log de inicialização.
 - **Docker.** Instalado do repositório oficial; `daemon.json` com rotação de logs (`json-file`, `max-size` de 10 MB, `max-file` de 5) e `live-restore`.
-- **Diretórios.** `/opt/aprova` (repositório de `infra/`, `compose.yml`), `/opt/aprova/secrets` (modo 700), `/opt/aprova/backups`.
+- **Diretórios.** `/opt/aprova` (com o clone do repositório em `/opt/aprova/repo`; o Compose roda de `infra/`), `/opt/aprova/secrets` (modo 700), `/opt/aprova/backups`.
 
 ## 6. Docker Compose de produção
 
@@ -386,7 +387,9 @@ infra/
 ├── compose.yml              # produção
 ├── compose.dev.yml          # desenvolvimento local (Postgres e Redis)
 ├── Caddyfile
-├── scripts/                 # bootstrap-host.sh, deploy.sh, backup.sh, restore-drill.sh
+├── env/                     # modelos dos arquivos de /opt/aprova/secrets (*.env.example)
+├── observability/           # config.alloy, alerts.yml e dashboard-operacao.json
+├── scripts/                 # bootstrap-host.sh, deploy.sh, backup.sh, restore-drill.sh, create-monitor-role.sh
 ├── systemd/                 # aprova-deploy.{service,timer}, aprova-backup.{service,timer}
 └── README.md
 ```
@@ -622,8 +625,8 @@ api.<seu-domínio> {
 
 Regras:
 
-- **Nada disso entra no repositório**, que é público. Antes do primeiro uso, `.env` entra no `.gitignore` (hoje só `.env*.local` está coberto).
-- Geração: `openssl rand -base64 48` para `JWT_SECRET` e para as senhas.
+- **Nada disso entra no repositório**, que é público. O `.gitignore` cobre `.env`, `*.env`, `*.age` e os arquivos do Firebase (marco D0 concluído em 02/11/2026).
+- Geração: `openssl rand -base64 48` para `JWT_SECRET`; `openssl rand -hex 32` para as senhas que entram em URLs (§21.2). Os modelos de cada arquivo estão em `infra/env/`.
 - **Rotação.** `JWT_SECRET`: troque o arquivo e reinicie a API; os tokens de acesso (15 min) deixam de valer e os apps renovam com o refresh token. Chave da IA: crie a nova, atualize o arquivo, `docker compose up -d worker`, revogue a antiga. Senhas de banco: janela de manutenção.
 - **Vazamento** de qualquer segredo: runbook R10.
 - A lista de variáveis e o que é segredo está no guia do Back-End (§18). O SDK de monitoramento recebe o DSN do Sentry, que não é segredo mas não deve ficar em código.
@@ -787,7 +790,7 @@ O serviço `migrate` do Compose já roda antes de API, Workers e relay (§6.3), 
 
 ### 11.4 Rollback
 
-Rollback de **código**: rode o fluxo de promoção apontando para o `<sha>` anterior; a VM volta em até 2 minutos. Em emergência, na VM: `IMAGE_TAG=<sha> docker compose up -d`.
+Rollback de **código**: rode o fluxo de promoção apontando para o `<sha>` anterior; a VM volta em até 2 minutos. Em emergência, na VM: grave `IMAGE_TAG=<sha>` em `/opt/aprova/repo/infra/.env` e rode `docker compose up -d`; apague a linha para voltar a seguir `production` (§21.2).
 
 Rollback de **dados**: migrações não se revertem sozinhas. Por isso toda migração é compatível com a versão anterior (expandir e contrair em dois lançamentos). Se uma migração corromper dados, o caminho é restaurar o backup (runbook R3) e republicar as mensagens pendentes (§8.4 do guia do Back-End).
 
@@ -809,29 +812,21 @@ O plano Free tem 15 builds Android e 15 iOS por mês, em fila de baixa prioridad
 - Builds locais (`eas build --local`) usam a máquina da equipe e não consomem a cota †.
 - Quando a cota apertar, a equipe é avisada **antes**: o plano Starter custa US$ 19 por mês (US$ 45 de crédito de build).
 
-`eas.json` com o ambiente de cada perfil (a URL da API é pública):
+`eas.json` (versionado na raiz) usa o campo `environment` de cada perfil: a URL da API (`EXPO_PUBLIC_API_URL`, pública) é criada nas variáveis do EAS com `eas env:create`, uma por ambiente (`development`, `preview` e `production`), e não no arquivo, porque o domínio ainda não existe (§21.2).
 
 ```json
 {
   "cli": { "appVersionSource": "remote" },
   "build": {
-    "development": {
-      "developmentClient": true,
-      "distribution": "internal",
-      "env": { "EXPO_PUBLIC_API_URL": "https://api.<seu-domínio>" }
-    },
-    "preview": {
-      "distribution": "internal",
-      "env": { "EXPO_PUBLIC_API_URL": "https://api.<seu-domínio>" }
-    },
-    "production": {
-      "autoIncrement": true,
-      "env": { "EXPO_PUBLIC_API_URL": "https://api.<seu-domínio>" }
-    }
+    "development": { "developmentClient": true, "distribution": "internal", "environment": "development" },
+    "preview": { "distribution": "internal", "environment": "preview" },
+    "production": { "autoIncrement": true, "environment": "production" }
   },
   "submit": { "production": {} }
 }
 ```
+
+O fluxo `.github/workflows/mobile-build.yml` enfileira builds manualmente ou ao criar uma etiqueta `v*` (§21.2).
 
 ### 12.2 Credenciais
 
@@ -1024,3 +1019,41 @@ Os marcos `F#` e `B#` referem-se aos guias do Front-End e do Back-End.
 | Preço de Workers e Key Value configurável no Render | Equipe, na consulta ao provedor | Migração (§16) |
 | `bundleIdentifier`, `package`, política de privacidade e conta de teste das lojas | Produto | D7 |
 | Fonte, preço e comissões do Premium; LGPD | Produto e jurídico | Go-live |
+
+## 21. Estado da implementação e desvios
+
+Atualizado em 02/11/2026. A camada de DevOps foi implementada no repositório; este capítulo registra o que existe, como foi verificado, onde a implementação difere do texto acima (os arquivos versionados prevalecem sobre os trechos deste guia) e o que depende de outras equipes. Os arquivos estão em `infra/` (ver `infra/README.md`), `.github/`, `backend/Dockerfile` e `eas.json`.
+
+### 21.1 Marcos
+
+| Marco | Entregue no repositório | Verificado | Falta (fora do repositório ou de outras equipes) |
+| --- | --- | --- | --- |
+| D0 | `.gitignore` cobre `.env`, `*.env`, `*.age`, `google-services.json` e `GoogleService-Info.plist`; `.gitattributes` mantém LF nos arquivos de Linux | `git check-ignore` confirma `.env`, `.env.*` e `*.env` ignorados e os `*.example` versionados | Proteção de ramos e política de segredos nas configurações do GitHub; conta e região da Oracle |
+| D1 | `ci.yml` e `dependabot.yml` | `actionlint` sem erros | Scripts `lint` e `typecheck` do app (F0) e do backend (B0); entrada `npm` de `backend/` no Dependabot quando existir `backend/package.json`; proteção de ramos com `app` e `backend` obrigatórios |
+| D2 | `infra/scripts/bootstrap-host.sh` e unidades do systemd | `bash -n` e `shellcheck` sem avisos; **não executado em uma VM** | Provisionar a VM; critério de aceite (SSH, portas, repetição sem erro) |
+| D3 | `infra/compose.yml`, `Caddyfile`, `compose.dev.yml` e `infra/env/*.example` | `docker compose config` válido; Caddyfile **não validado** (sem binário do Caddy) | Domínio e DNS; `backend/package.json`, migrações, `bootstrap/*.ts`, `/healthz` e `/readyz` (B0 a B2) |
+| D4 | `backend-image.yml`, `promote-production.yml` e `deploy.sh` | `actionlint` sem erros; decisão do `deploy.sh` testada com stubs de `docker` (primeira subida, nada a fazer, imagem nova, API que não fica saudável) | Ambiente `production` com revisores, variável `API_BASE_URL`, visibilidade do pacote no GHCR; medição de deploy e rollback |
+| D5 | `infra/observability/` (Alloy, `alerts.yml`, painel) e exportadores no Compose | YAML e JSON válidos; **não testado no Grafana Cloud** | Conta e token do Grafana Cloud; verificações do Synthetic Monitoring; nomes de métrica do Back-End (§21.3) |
+| D6 | `backup.sh`, `restore-drill.sh` e temporizador | `backup.sh` testado com stubs (retenção de 7, métricas, falha da cópia externa); `restore-drill.sh` só com `shellcheck` | Decidir o destino externo dos backups; gerar o par de chaves do `age` |
+| D7 | `eas.json` e `mobile-build.yml` | `actionlint` e JSON válidos | `bundleIdentifier`, `package` e `projectId` em `app.json` (produto e F8); `EXPO_TOKEN`; variável `EXPO_PUBLIC_API_URL` no EAS; credenciais de loja e Firebase |
+
+### 21.2 Desvios do guia
+
+1. **CI com portões (§10.1).** Enquanto `lint` e `typecheck` não existirem no `package.json`, o job `app` emite um aviso em vez de reprovar; o job `backend` termina com aviso se `backend/package.json` não existir. Com o script presente, a falha reprova. Remova o portão quando F0 e B0 estiverem concluídos.
+2. **Local dos arquivos na VM (§5).** O repositório é clonado em `/opt/aprova/repo` e o Compose roda a partir de `/opt/aprova/repo/infra`. Os scripts não dependem do caminho. Atualizar `infra/` na VM é uma ação manual (`git pull --ff-only`), sem aprovação automática de mudanças de infraestrutura.
+3. **SSH e firewall (§5).** O arquivo do SSH se chama `00-aprova-hardening.conf` porque o `sshd` usa o primeiro valor lido e o `50-cloud-init.conf` costuma reativar a senha. As regras de 80, 443 e UDP 443 são gravadas direto em `/etc/iptables/rules.v4`: `netfilter-persistent save` persistiria também as cadeias do Docker. O script se recusa a endurecer o SSH sem uma chave autorizada para o usuário de operação.
+4. **Imagens fixadas por versão menor (§6.2, §6.3).** `node:24.22-bookworm-slim`, `postgres:18.6`, `redis:8.2`, `caddy:2.11`, `grafana/alloy:v1.21.3`, `prom/node-exporter:v1.12.1`, `redis_exporter:v1.96.0` e `postgres-exporter:v0.20.1`, todas com `arm64` confirmado no Docker Hub em 02/11/2026. O Dependabot propõe as atualizações.
+5. **Compose (§6.3).** `init: true` nos serviços do app (o Node como PID 1 não repassa SIGTERM sozinho); o `relay` também está na rede `egress`, porque precisa reportar erros ao Sentry (§3.1 já previa saída para ele); o Caddy lê `API_DOMAIN`, `ACME_EMAIL` e `ACME_CA` de `caddy.env`, e o `Caddyfile` responde 404 em `/metrics` por precaução, além de não rotear a porta de métricas.
+6. **Segredos (§9).** Senhas embutidas em URL (`DATABASE_URL`, `REDIS_URL`) devem ser geradas com `openssl rand -hex 32`, pois o base64 traz `/` e `+`, que quebram a URL; `JWT_SECRET` continua em base64. Os arquivos `postgres_password` e `redis_password` precisam ser legíveis pelo usuário `postgres` dentro do contêiner, o que um arquivo de modo 600 do usuário `deploy` não permite: use modo 644 dentro de `/opt/aprova/secrets` (modo 700). **A confirmar na primeira subida.** Arquivos novos: `caddy.env`, `alloy.env`, `backup.env` (opcional), `postgres_monitor_password` e `age_recipient.txt` (chave pública do `age`).
+7. **`deploy.sh` (§11.3).** Busca só as imagens do app (Caddy, PostgreSQL e Redis ficam fixados e são atualizados na janela mensal); só roda `docker compose up` quando a imagem muda ou um serviço não está de pé (o `migrate` terminaria e rodaria de novo a cada 2 minutos); impede execuções simultâneas com `flock`; espera a API ficar saudável e registra `deploy.log`. O rollback de emergência fixa a etiqueta em `infra/.env` (`IMAGE_TAG=<sha>`): uma variável de ambiente passada na linha de comando seria desfeita pelo temporizador em até 2 minutos.
+8. **Promoção (§11.2).** `promote-production.yml` só roda a partir de `master`, exige os checks `app`, `backend`, `image` e `scan` verdes no commit, registra o SHA anterior, quem aprovou e o resultado de `/readyz` no resumo da execução. O `/readyz` não identifica a versão em execução; o fluxo espera um ciclo do temporizador e exige `200`. Se o Back-End expuser a versão no `/readyz`, a verificação pode passar a comparar com o SHA promovido. A varredura Trivy roda em job próprio, sem permissão de escrita.
+9. **EAS (§12.1).** O domínio da API ainda não existe e o repositório é público, então `eas.json` usa `"environment"` por perfil e `EXPO_PUBLIC_API_URL` é criada nas variáveis do EAS (`eas env:create`), em vez de a URL ficar no arquivo. O perfil `development` exige `expo-dev-client`, que ainda não é dependência do app (decisão do Front-End). `mobile-build.yml` é manual ou por etiqueta `v*` (perfil `preview`) e enfileira com `--no-wait`; o `eas-cli` está fixado em 24.14.0, versão com mais de duas semanas de lançamento em 02/11/2026. O envio às lojas (`eas submit`) continua manual.
+10. **Observabilidade (§13).** O Alloy lê o socket do Docker (somente leitura, o que na prática dá acesso à API do Docker): a imagem é fixada e não tem portas publicadas. O `node-exporter` roda na rede do Compose, sem rede do host, e por isso não mede a rede da VM (o alerta de ociosidade usa CPU e memória). O papel `aprova_monitor` (`pg_monitor`) é criado por `infra/scripts/create-monitor-role.sh`; ele não consta entre os papéis do Back-End.
+11. **Backups (§14).** A cópia externa usa `rclone` e não fixa o destino (decisão em aberto da equipe de DevOps, §20.2): configure `BACKUP_RCLONE_REMOTE` em `backup.env`. A retenção do destino externo é do próprio armazenamento. O simulado de restauração é manual porque a chave privada do `age` fica fora da VM (`--key`).
+12. **PDFs.** Os PDFs de `docs/` não foram regenerados nesta alteração (a ferramenta usada para gerá-los não está disponível no ambiente); regenerar `docs/IMPLEMENTACAO-DEVOPS.pdf` e `docs/ARQUITETURA.pdf` com a ferramenta de origem.
+
+### 21.3 Dependências de outras equipes
+
+- **Back-End:** `backend/package.json` e `package-lock.json`; `migrations/`; `src/bootstrap/{api,worker,relay,migrate}.ts`; `/healthz`, `/readyz` e `/metrics` em `METRICS_PORT` (o Alloy usa `9464`, que deve coincidir com `common.env`); nomes de métrica de profundidade e idade do job mais antigo por fila e do orçamento mensal da IA (sem eles, faltam os alertas de fila atrasada e de custo da IA, §13.4); confirmação dos rótulos `route`, `status` e `outcome` usados em `alerts.yml`; nomes dos papéis de banco e a variável `PORT` (3000 no Compose).
+- **Front-End:** scripts `lint` e `typecheck` (F0), `expo-dev-client`, `bundleIdentifier`, `package` e `projectId` em `app.json`, e o consumo de `EXPO_PUBLIC_API_URL`.
+- **Produto e responsáveis:** domínio da API e e-mail do certificado, conta e região da Oracle, aprovação de P9 e P10 (esta implementação assume a aprovação, pois o pedido foi implementar este guia por completo; nenhuma dependência de pacote foi instalada), política de privacidade e contas de teste das lojas.

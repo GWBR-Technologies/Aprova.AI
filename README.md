@@ -58,8 +58,9 @@ em [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md), também disponível em PDF
 ([`docs/ARQUITETURA.pdf`](docs/ARQUITETURA.pdf)). Cada equipe tem um guia de
 implementação (Front-End, Back-End e DevOps) em `docs/`, com o PDF correspondente.
 
-Hoje o repositório contém apenas a aplicação Expo e a estrutura de camadas;
-BullMQ, Redis, backend e contratos ainda não estão implementados nem instalados.
+Hoje o repositório contém a aplicação Expo, a estrutura de camadas e a camada de
+DevOps (`infra/`, `.github/`, `backend/Dockerfile` e `eas.json`); BullMQ, Redis,
+backend e contratos ainda não estão implementados nem instalados.
 
 | Arquivo ou diretório | Responsabilidade |
 | --- | --- |
@@ -69,6 +70,9 @@ BullMQ, Redis, backend e contratos ainda não estão implementados nem instalado
 | `src/core/` | Infraestrutura do cliente: HTTP, outbox local, persistência e eventos |
 | `contracts/` | Contrato entre app e backend: comandos, consultas e eventos |
 | `backend/src/` | API de comandos e consultas e Workers (domínio, aplicação, infraestrutura) |
+| `infra/` | Implantação: Docker Compose, Caddyfile, scripts, temporizadores e observabilidade |
+| `.github/` | Integração e entrega contínuas (fluxos do GitHub Actions) e Dependabot |
+| `eas.json` | Perfis do EAS Build |
 | `assets/` | Ícones e imagens do aplicativo |
 | `app.json` | Nome, orientação e configuração das plataformas |
 | `tsconfig.json` | Configuração do TypeScript, estendendo a base do Expo |
@@ -164,6 +168,9 @@ forem configurados no projeto.
 Aprova.AI/
 ├── .agents/
 │   └── skills/          # Workflows de desenvolvimento para Codex
+├── .github/
+│   ├── workflows/       # ci, backend-image, promote-production, mobile-build
+│   └── dependabot.yml   # Atualizações de dependências, actions e imagens
 ├── .claude/
 │   ├── agents/          # Instruções de revisão e auditoria
 │   ├── commands/        # Fluxos de revisão e correção de defeitos
@@ -172,9 +179,11 @@ Aprova.AI/
 │   └── skills/          # Fluxos de interface e prontidão local
 ├── assets/              # Ícones e imagens
 ├── backend/
+│   ├── Dockerfile       # Imagem de produção do backend
 │   └── src/             # domain, application, infrastructure, api, workers, bootstrap
 ├── contracts/           # Contrato app <-> backend (comandos, consultas, eventos)
 ├── docs/                # Arquitetura, guias de implementação (.md e .pdf), guias e design
+├── infra/               # Compose, Caddyfile, scripts, systemd e observabilidade (ver infra/README.md)
 ├── src/
 │   ├── app/
 │   │   └── App.tsx      # Tela inicial (camada de composição)
@@ -182,6 +191,7 @@ Aprova.AI/
 │   └── features/        # Contextos de negócio do app
 ├── index.ts             # Registro do componente principal no Expo
 ├── app.json             # Configuração do Expo
+├── eas.json             # Perfis do EAS Build
 ├── package.json         # Dependências e scripts
 ├── package-lock.json    # Versões resolvidas das dependências
 ├── tsconfig.json        # Configuração do TypeScript
@@ -216,6 +226,10 @@ Aprova.AI/
 - **Arquitetura:** a organização em camadas existe, mas não há backend,
   filas, contratos, cliente de rede nem persistência implementados. As
   decisões em aberto estão em `docs/ARQUITETURA.md` (seção 14).
+- **DevOps:** a camada está implementada, mas nenhuma VM foi provisionada e nada
+  foi executado fora do ambiente de desenvolvimento. Os fluxos `ci` e `backend-image`
+  dependem dos scripts do app (F0) e de `backend/package.json` (B0). Estado por marco e
+  desvios em `docs/IMPLEMENTACAO-DEVOPS.md` (seção 21).
 - **Design:** a identidade visual do Aprova.AI ainda não foi definida
   (`docs/DESIGN.md`).
 

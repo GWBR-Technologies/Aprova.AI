@@ -5,7 +5,7 @@ As instruções operacionais compartilhadas estão em `docs/AGENTS.md`, o único
 ## Contexto Aplicado
 
 - Aplicativo Expo 57 com React Native, React 19 e TypeScript estrito, para estudo para o Enem, a Fuvest e outros vestibulares, com apoio e correção por IA (GPT 6.1 - Terra).
-- Arquitetura EDA + CQRS com BullMQ + Redis e Workers em segundo plano; camadas em `src/` (app), `contracts/` e `backend/src/`.
+- Arquitetura EDA + CQRS com BullMQ + Redis e Workers em segundo plano; camadas em `src/` (app), `contracts/` e `backend/src/`; implantação em `infra/` e `.github/`.
 - Ponto de entrada em `index.ts`; composição em `src/app/`.
 - Projeto em estágio inicial, sem navegação, rede, persistência, autenticação, backend nem contratos implementados.
 

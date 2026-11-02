@@ -298,7 +298,7 @@ A consulta vai direto à API de consultas e lê o read store. Não passa por com
 Aprova.AI/
 ├── index.ts                    # Entrada do Expo (registerRootComponent); é o `main` do package.json
 ├── app.json
-├── eas.json                    # Perfis do EAS Build (nasce quando o primeiro build for configurado)
+├── eas.json                    # Perfis do EAS Build
 ├── package.json
 ├── tsconfig.json
 ├── assets/                     # Ícones e imagens
@@ -336,8 +336,8 @@ Aprova.AI/
 │       ├── api/                # HTTP: rotas de comando e rotas de consulta, separadas
 │       ├── workers/            # Um processador BullMQ por fila
 │       └── bootstrap/          # Composition roots: api.ts e worker.ts
-├── infra/                      # Implantação: Docker Compose, Caddyfile e scripts (nasce no primeiro uso)
-├── .github/workflows/          # Integração e entrega contínuas (nasce no primeiro uso)
+├── infra/                      # Implantação: Docker Compose, Caddyfile, scripts e observabilidade
+├── .github/workflows/          # Integração e entrega contínuas
 ├── docs/                       # Documentação (ARQUITETURA, guias de implementação, design)
 ├── .claude/ e .agents/         # Regras e workflows para assistência ao desenvolvimento
 └── README.md
@@ -353,7 +353,7 @@ Para não criar pastas vazias nem abstrações sem uso, o repositório contém h
 | --- | --- |
 | `index.ts`, `src/app/` | `src/components/`, `src/hooks/`, `src/constants/theme.ts` |
 | `contracts/`, `src/features/`, `src/core/` (README) | Subpastas de `contracts/`, de `src/core/` e de cada contexto |
-| `backend/src/domain`, `application`, `infrastructure`, `api`, `workers`, `bootstrap` (README) | Subpastas de `application/` e `infrastructure/`, `backend/package.json`, `infra/`, `.github/workflows/`, `eas.json` |
+| `backend/src/domain`, `application`, `infrastructure`, `api`, `workers`, `bootstrap` (README); `backend/Dockerfile`, `infra/`, `.github/workflows/`, `eas.json` | Subpastas de `application/` e `infrastructure/`, `backend/package.json` |
 
 ### 10.3 Regras de dependência
 
