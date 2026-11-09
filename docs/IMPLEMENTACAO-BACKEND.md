@@ -1261,7 +1261,7 @@ Os marcos `F#` e `D#` referem-se aos guias do Front-End e do DevOps.
 
 ## 21. Estado da implementação
 
-Atualizado em 02/11/2026. Aprovados pelo responsável pelo produto nesta etapa: P1 (login com Google e Apple), P2, P3, P6, a parte de backend de P7 e P8 (Vitest, `lint` e `typecheck` em `backend/`) e a exceção de `GetEntitlements` (§14). O Sentry (P9) ficou para o B6.
+Atualizado em 08/11/2026. Aprovados pelo responsável pelo produto nesta etapa: P1 (login com Google e Apple), P2, P3, P6, a parte de backend de P7 e P8 (Vitest, `lint` e `typecheck` em `backend/`) e a exceção de `GetEntitlements` (§14). O Sentry (P9) ficou para o B6.
 
 ### 21.1 Marcos
 
@@ -1292,7 +1292,14 @@ Atualizado em 02/11/2026. Aprovados pelo responsável pelo produto nesta etapa: 
 - **`trustProxy`** confia apenas em endereços privados (`loopback,uniquelocal`), porque a API só é alcançável pela rede interna do Compose.
 - **`bodyLimit`** é `ESSAY_MAX_CHARS × 4 + 16 KiB` (pior caso de UTF-8 mais o envelope).
 - **Imagem de produção.** O backend foi validado com o `Dockerfile` do DevOps (`npm ci --omit=dev --ignore-scripts`): as dependências de produção funcionam sem scripts de instalação (o `msgpackr-extract`, opcional do BullMQ, cai na implementação em JavaScript). Na imagem, `migrate`, a API, o Worker e o relay subiram contra Postgres 18 e Redis 8.2; `/readyz` respondeu `200` com a versão e as métricas apareceram na porta `9464`.
-- **Papéis de banco.** A migração `0001` cria os papéis de grupo `aprova_api` (API e relay) e `aprova_worker`, sem login. Os usuários de login e as senhas ficam com o DevOps: cada login recebe o papel com `GRANT aprova_api TO <login>` (ou `GRANT aprova_worker`). As migrações rodam sempre com o mesmo papel dono dos esquemas (`aprova_admin` no Compose), porque os `ALTER DEFAULT PRIVILEGES` da `0001` valem para os objetos criados por esse papel. Como a API serve comandos e consultas no mesmo processo, não há papel separado para consultas.
+- **Papéis de banco.** A migração `0001` cria os papéis de grupo `aprova_api` (API e relay) e `aprova_worker`, sem login. Os usuários de login e as senhas ficam com o DevOps: cada login recebe o papel com `GRANT aprova_api TO <login>` (ou `GRANT aprova_worker`). As migrações rodam sempre com o mesmo papel dono dos esquemas (`aprova_admin` no Compose), porque os `ALTER DEFAULT PRIVILEGES` da `0001` valem para os objetos criados por esse papel. Como a API serve comandos e consultas no mesmo processo, não há papel separado para consultas. O teste `test/integration/database-roles.test.ts` cria logins nesses grupos, como faz `infra/scripts/create-db-logins.sh`, e roda com eles o login, o refresh, os comandos, o relay (inclusive o reconciliador e a limpeza do outbox), os Workers e as consultas. O teste também confirma que a API não grava no read store, que os Workers não apagam no write store e que nenhum dos dois altera o esquema.
+- **Integração com o app e com a operação (08/11/2026).** Depois dos merges do Front-End e do DevOps no `development`, o backend foi conferido contra o que eles usam:
+  - as rotas e os corpos de autenticação que o app chama, e o `sub` do token de acesso, de onde o app tira o `userId`;
+  - os nomes de métricas dos alertas em `infra/observability/alerts.yml`;
+  - as variáveis de `infra/env/*.example` (uma variável vazia no arquivo vale como ausente);
+  - o job `backend` do `ci.yml`.
+
+  Nada precisou mudar no código. A variável `SENTRY_DSN` já está nos arquivos de ambiente, mas o backend ainda não a lê, porque o P9 não foi aprovado. Enquanto `AI_PROMPT_VERSION` não estiver definida, o alerta de atraso da fila `essay-correction` dispara, porque as redações ficam guardadas na fila.
 - **Republicação de job falho.** Se a última tentativa falhar sem que a falha possa ser gravada (banco fora do ar) ou se o BullMQ desistir de um job travado, a redação fica em `processing`, e o job falho continua retido (`removeOnFail`) com o mesmo `jobId`. Por isso, ao publicar, o adaptador procura o job: se ele estiver falho, volta para a fila com as tentativas zeradas (`job.retry`), em vez de a publicação ser ignorada. Assim o reconciliador do §8.4 recupera o caso.
 - **Saídas inválidas da IA.** O limite (proposta: 2) conta as respostas da IA para a redação registradas em `ai_usage`, e não todas as tentativas. Tempos limite e erros `5xx` não consomem esse limite.
 - **Erros de configuração da OpenAI** (`401`, `403`, `404`: chave, permissão ou modelo) são tratados como transitórios. Eles não marcam a redação como recusada pelo conteúdo; se persistirem até a última tentativa, a redação termina como `PROCESSING_FAILED`, com a cota devolvida.
@@ -1313,9 +1320,9 @@ Atualizado em 02/11/2026. Aprovados pelo responsável pelo produto nesta etapa: 
 
 ### 21.4 Validação
 
-Executados em `backend/` em 02/11/2026:
+Executados em `backend/` em 02/11/2026 e repetidos em 08/11/2026:
 
-- `npm run typecheck`, `npm run lint` e `npm test`: 77 testes passando, dos quais 9 de integração. Os testes de integração rodaram contra contêineres descartáveis de `postgres:18` e `redis:8.2` (AOF ligado, `noeviction`).
+- `npm run typecheck`, `npm run lint` e `npm test`: 79 testes passando, dos quais 11 de integração. Os testes de integração rodaram contra contêineres descartáveis de `postgres:18` e `redis:8.2` (AOF ligado, `noeviction`).
 - A integração cobre:
   - migrações em banco limpo;
   - duas submissões simultâneas com 3 usos, das quais só uma passa;
@@ -1326,10 +1333,11 @@ Executados em `backend/` em 02/11/2026:
   - o reconciliador;
   - `jobId` duplicado ignorado pelo BullMQ;
   - republicação de job falho de volta à fila;
-  - o fluxo do §8.1 com IA falsa, do `202` até o `GetEssay` com `completed`.
+  - o fluxo do §8.1 com IA falsa, do `202` até o `GetEssay` com `completed`;
+  - o mesmo fluxo com os logins restritos de `aprova_api` e `aprova_worker`, além das recusas de privilégio (código `42501`).
 - `npm run db:migrate` aplicou as migrações num banco novo e foi executado de novo sem erro: 15 tabelas em `write` e `read` e os papéis `aprova_api` e `aprova_worker`.
 - A API e o Worker também foram iniciados com Postgres e Redis inacessíveis: `/healthz` respondeu `200`, `/readyz` `503` e as rotas autenticadas `401`, e `/metrics` serviu as métricas.
 
 Para repetir a integração localmente, suba instâncias descartáveis e defina `TEST_DATABASE_URL` e `TEST_REDIS_URL` antes de `npm test`. Os testes recriam os esquemas e esvaziam o Redis.
 
-Sem verificação até aqui: login real com Google e Apple, chamada real à IA, comportamento sob carga (B7) e execução dentro da imagem Docker de produção (guia de DevOps).
+Sem verificação até aqui: login real com Google e Apple, chamada real à IA, comportamento sob carga (B7) e a subida no servidor de produção (guia de DevOps). A imagem de produção foi validada localmente (§21.2).
