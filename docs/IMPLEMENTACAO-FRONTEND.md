@@ -894,3 +894,27 @@ Diferenças em relação ao esboço do guia: o outbox é uma fábrica testável 
 - `EssayListItem` abre uma consulta por redação enquanto ela não concluir; com muitos itens em processamento há várias consultas simultâneas.
 - Um comando `submit-essay` descartado depois de o servidor já tê-lo aceito não cancela a correção.
 - Os testes de interface usam mocks de módulo para rede e outbox; o SQL do outbox é testado com `node:sqlite`, que não é o mesmo motor do `expo-sqlite`.
+
+### 18.6 Envio da redação por foto: o que o app precisa do contrato
+
+Decidido pelo produto em 02/11/2026: o aluno fotografa a folha manuscrita, a IA transcreve preservando a formatação, corrige e devolve o resultado. O app já captura e revisa as fotos (`redacao/foto`); o envio **não** foi implementado porque `SubmitEssayPayload` só aceita `text` e não existe contrato de imagem em `contracts/`. Esta seção é uma **proposta do Front-End, não um contrato aprovado**: o Back-End e o DevOps decidem o desenho e o registram em `contracts/` e na arquitetura.
+
+**Decisões que o Front-End precisa receber**
+
+| Ponto | Por que o app precisa saber |
+| --- | --- |
+| Transporte da imagem: URL pré-assinada para armazenamento de objetos (o app pede a URL e envia os bytes) ou envio direto à API | Define se há uma chamada nova antes do `SubmitEssay` e onde o app guarda o arquivo até o `202`. O envio de arquivo não é um comando (como o login, devolve resposta síncrona) |
+| Formato do `SubmitEssay` para foto (por exemplo `source: 'photo'` e a lista ordenada de páginas, com o identificador de cada imagem enviada) | O `essayId` e o `commandId` continuam gerados no app; as páginas precisam de ordem estável |
+| Número máximo de páginas, tamanho máximo por imagem e tipo aceito (o app hoje gera JPEG com qualidade 0,9) | O app valida antes de enfileirar e explica o limite ao aluno |
+| Idempotência do envio de cada página (chave por `essayId` e posição) | Reenvio depois de queda de rede não pode duplicar páginas nem consumir cota duas vezes |
+| Se a cota é consumida no `202` do `SubmitEssay` (como no texto) ou só depois da transcrição, e se a falha de transcrição devolve a cota | O texto da cota na tela e a mensagem de falha dependem disso |
+| Novos códigos de falha (por exemplo imagem ilegível ou sem texto) em `EssayFailureCode` | O app só mostra mensagens para códigos conhecidos (§12.2) e nunca o texto do provedor |
+| O que `GetEssay` devolve a mais (a transcrição, para o aluno conferir, ou só a correção) e se existe um estado intermediário de transcrição | Define o estado de tela e o texto de acompanhamento |
+| Retenção e exclusão das imagens depois da transcrição; consentimento para enviar a foto ao provedor de IA | A foto é dado pessoal (LGPD, §13): a política precisa estar definida antes de o app enviar qualquer imagem |
+
+**O que o app implementa depois do contrato**
+
+- Guardar as imagens até o `202` e apagá-las em seguida (o outbox só guarda JSON). Apagar o arquivo exige `expo-file-system`, e reduzir o tamanho antes do envio talvez exija `expo-image-manipulator`: ambas dependem de aprovação.
+- Um passo de envio das imagens antes do comando, retomável pelo outbox, com os mesmos estados do §6.5 e as mesmas regras de repetição e de descarte.
+- Habilitar o botão de enviar de `redacao/foto`, os novos textos de erro e a exibição da transcrição, se o contrato a trouxer.
+- Testes de sucesso, entrada inválida (limite excedido), falha de rede no meio do envio e retomada.
